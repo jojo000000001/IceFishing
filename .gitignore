@@ -1,0 +1,25 @@
+# Unity
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+*.log
+
+# IDE
+.vs/
+.vsconfig
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# Unity-generated
+Assembly-CSharp*.csproj
+MCPForUnity*.csproj
+
+# OS
+.DS_Store
+Thumbs.db

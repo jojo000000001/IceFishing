@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76cd4445684a42644b2b4349fcf35635, type: 3}
+  m_Name: Fish_12_ArmorBass
+  m_EditorClassIdentifier: 
+  Id: armor_bass
+  DisplayName: "\u94E0\u9C88"
+  MinDepthMeters: 40
+  MaxDepthMeters: 90
+  Stars: 3
+  SpawnWeight: 40
+  MoveSpeed: 0.8
+  WorldHeight: 1.15
+  Prefab: {fileID: 595504389301867646, guid: e2dc008c990cb2c41a48270f3ad654e3, type: 3}

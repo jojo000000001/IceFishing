@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76cd4445684a42644b2b4349fcf35635, type: 3}
+  m_Name: Fish_08_SpeckledSalmon
+  m_EditorClassIdentifier: 
+  Id: speckled_salmon
+  DisplayName: "\u6591\u9C91"
+  MinDepthMeters: 20
+  MaxDepthMeters: 70
+  Stars: 2
+  SpawnWeight: 70
+  MoveSpeed: 1.05
+  WorldHeight: 0.85
+  Prefab: {fileID: 7881103737606973057, guid: ebfba30cd3c0d7e4b930c688db0ee3f8, type: 3}

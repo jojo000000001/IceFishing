@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76cd4445684a42644b2b4349fcf35635, type: 3}
+  m_Name: Fish_10_IceBream
+  m_EditorClassIdentifier: 
+  Id: ice_bream
+  DisplayName: "\u51B0\u9CB7"
+  MinDepthMeters: 35
+  MaxDepthMeters: 85
+  Stars: 3
+  SpawnWeight: 50
+  MoveSpeed: 0.9
+  WorldHeight: 1.05
+  Prefab: {fileID: 394306945575608354, guid: 1eb0585958c10f147a4209d8a643ba22, type: 3}

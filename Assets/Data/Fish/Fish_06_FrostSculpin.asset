@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76cd4445684a42644b2b4349fcf35635, type: 3}
+  m_Name: Fish_06_FrostSculpin
+  m_EditorClassIdentifier: 
+  Id: frost_sculpin
+  DisplayName: "\u971C\u9C89"
+  MinDepthMeters: 15
+  MaxDepthMeters: 72
+  Stars: 2
+  SpawnWeight: 70
+  MoveSpeed: 0.75
+  WorldHeight: 0.9
+  Prefab: {fileID: 5786254624955249865, guid: 50e8a62b839b4c1468bd51583cdddb37, type: 3}

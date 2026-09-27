@@ -59,7 +59,7 @@ MonoBehaviour:
   _fishField: {fileID: 3839290926563023463}
   _fishCatalog: {fileID: 11400000, guid: 47e84a1bb4e70804a8fb08eab40af0c2, type: 2}
   _screen: 0
-  _hookSprite: {fileID: 21300000, guid: 7e3c1a94b8d64f2aa6c0e15d4b9f2708, type: 3}
+  _hookSprite: {fileID: 0}
   hookDropPosition: {x: 0.08, y: 6.5}
   hookProtectionHits: 5
   lineLengthMeters: 100
@@ -196,7 +196,7 @@ SpriteRenderer:
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 6.32, y: 12.64}
+  m_Size: {x: 5.32, y: 10.24}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -309,13 +309,33 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 6072404867719063877, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6072404867719063877, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_Color.b
+      value: 0.28
+      objectReference: {fileID: 0}
+    - target: {fileID: 6072404867719063877, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_Color.g
+      value: 0.78
+      objectReference: {fileID: 0}
+    - target: {fileID: 6072404867719063877, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_Color.r
+      value: 0.92
+      objectReference: {fileID: 0}
+    - target: {fileID: 6072404867719063877, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_WasSpriteAssigned
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6087033708183285593, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.15948963
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6087033708183285593, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.15948963
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6087033708183285593, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
       propertyPath: m_LocalPosition.x
@@ -357,9 +377,25 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7811000017811000012, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 7811000017811000012, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_WasSpriteAssigned
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7811000037811000032, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 7811000037811000032, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
+      propertyPath: m_WasSpriteAssigned
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7811000037811000037, guid: 961f6de024bbb5341a30be9e4996ce2c, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.3623188
+      value: 0.36231884
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

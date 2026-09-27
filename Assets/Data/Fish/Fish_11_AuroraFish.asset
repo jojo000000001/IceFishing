@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76cd4445684a42644b2b4349fcf35635, type: 3}
+  m_Name: Fish_11_AuroraFish
+  m_EditorClassIdentifier: 
+  Id: aurora_fish
+  DisplayName: "\u6781\u5149\u9C7C"
+  MinDepthMeters: 45
+  MaxDepthMeters: 95
+  Stars: 3
+  SpawnWeight: 40
+  MoveSpeed: 1.15
+  WorldHeight: 0.95
+  Prefab: {fileID: 9100836114120554577, guid: 2ac27ed6f3d4aba41af7a9e23ff0005a, type: 3}

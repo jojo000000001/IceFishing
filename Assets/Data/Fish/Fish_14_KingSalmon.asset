@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76cd4445684a42644b2b4349fcf35635, type: 3}
+  m_Name: Fish_14_KingSalmon
+  m_EditorClassIdentifier: 
+  Id: king_salmon
+  DisplayName: "\u7687\u9C91"
+  MinDepthMeters: 55
+  MaxDepthMeters: 100
+  Stars: 4
+  SpawnWeight: 20
+  MoveSpeed: 1.1
+  WorldHeight: 1.3
+  Prefab: {fileID: 5179867493706250561, guid: c965ea39bc01a3e4e8513656eaa7bec8, type: 3}
