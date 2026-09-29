@@ -73,7 +73,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: -30
-  m_Sprite: {fileID: 21300000, guid: 57ee62158a958714693aaab7aae2d435, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 4fa7897dcbac6bf408f46b560a55954d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -81,7 +81,7 @@ SpriteRenderer:
   m_Size: {x: 7.2, y: 12.8}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 0
+  m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &5999063436152493447
@@ -132,7 +132,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 16b486853f6db5b4697c7a6f3488a2ec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _waterTile: {fileID: 21300000, guid: 57ee62158a958714693aaab7aae2d435, type: 3}
+  _waterTile: {fileID: 21300000, guid: 4fa7897dcbac6bf408f46b560a55954d, type: 3}
   _leftIce:
   - {fileID: 21300000, guid: 180182c5d7cf9fa4b9c6b332888e49e4, type: 3}
   - {fileID: 21300000, guid: 4870896833524bd4388f476c2c376462, type: 3}
@@ -216,7 +216,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: -30
-  m_Sprite: {fileID: 21300000, guid: 57ee62158a958714693aaab7aae2d435, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 4fa7897dcbac6bf408f46b560a55954d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -224,7 +224,7 @@ SpriteRenderer:
   m_Size: {x: 7.2, y: 12.8}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 0
+  m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &8720612103568096305
@@ -331,7 +331,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: -30
-  m_Sprite: {fileID: 21300000, guid: 57ee62158a958714693aaab7aae2d435, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 4fa7897dcbac6bf408f46b560a55954d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -339,6 +339,6 @@ SpriteRenderer:
   m_Size: {x: 7.2, y: 12.8}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 0
+  m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0

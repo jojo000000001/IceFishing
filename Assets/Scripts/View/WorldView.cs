@@ -52,12 +52,13 @@ namespace IceFishing.View
         float _introEndDepth;
         Vector2 _dropStart;
         Color _hubSky = new Color(0.62f, 0.82f, 0.94f);
-        Color _waterSky = new Color(0.09f, 0.38f, 0.66f);
+        Color _waterSky = new Color(0f, 0.455f, 0.757f);
 
         Sprite _square;
         Sprite _circle;
         Transform _hookShield;
         const float HookWorldHeight = 1f;
+        const float HookWorldZ = -0.12f;
         const string HookSpritePath = "Assets/Art/Sprites/FishingAnchor.png";
         public const string DefaultHookPrefabPath = "Assets/Prefabs/World/FishingHook.prefab";
         public const string DefaultWorldPrefabPath = "Assets/Prefabs/World/IceFishingWorld.prefab";
@@ -152,8 +153,21 @@ namespace IceFishing.View
                 return;
             }
 
-            EnsureHookReference();
-            CaptureDropFromHook();
+            if (_hook == null)
+            {
+                _hook = FindHookTransform();
+            }
+
+            if (_hook == null)
+            {
+                return;
+            }
+
+            if (_line == null)
+            {
+                _line = _hook.GetComponent<LineRenderer>();
+            }
+
             SyncHookVisualInEditor();
         }
 
@@ -235,24 +249,24 @@ namespace IceFishing.View
                     _camp.gameObject.SetActive(true);
                 }
 
-                if (_underwater != null)
-                {
-                    _underwater.SetVisible(true);
-                    _underwater.SetIceVisible(true);
-                    _underwater.Tick(_worldCamera);
-                }
-
                 _lastHookX = hookDropPosition.x;
                 ShowHook();
                 if (_introT < 1f)
                 {
-                    LookAtHub();
+                    PlaceIntro(_lastHookX);
                     PlaceHubHook();
                 }
                 else
                 {
                     ApplyCastCamera(0f);
                     PlaceFishingHook(hookDropPosition.x, 0f);
+                }
+
+                if (_underwater != null)
+                {
+                    _underwater.SetVisible(true);
+                    _underwater.SetIceVisible(true);
+                    _underwater.Tick(_worldCamera);
                 }
             }
 
@@ -703,6 +717,16 @@ namespace IceFishing.View
                 }
             }
 
+            var hud = Object.FindFirstObjectByType<FishingHudView>(FindObjectsInactive.Include);
+            if (hud != null)
+            {
+                var onHud = hud.transform.Find("Hook");
+                if (onHud != null)
+                {
+                    return onHud;
+                }
+            }
+
             return null;
         }
 
@@ -729,6 +753,7 @@ namespace IceFishing.View
                 return;
             }
 
+            _hook.position = new Vector3(hookDropPosition.x, hookDropPosition.y, HookWorldZ);
             hookDropPosition = new Vector2(_hook.position.x, _hook.position.y);
             _dropStart = hookDropPosition;
         }
@@ -744,6 +769,12 @@ namespace IceFishing.View
         {
             _worldCamera.orthographicSize = CampField.WorldOrtho;
             _worldCamera.transform.position = new Vector3(0f, y, -10f);
+            if (_screen == AppScreen.Fishing)
+            {
+                _worldCamera.backgroundColor = _waterSky;
+                return;
+            }
+
             var waterline = _camp != null ? _camp.WaterlineY : CampField.WorldOrtho;
             var ortho = _worldCamera.orthographicSize;
             var mix = Mathf.InverseLerp(waterline, waterline - ortho, y + ortho);
@@ -819,8 +850,7 @@ namespace IceFishing.View
                 return;
             }
 
-            var z = _hook.position.z;
-            var hookPos = new Vector3(hookX, hookY, z);
+            var hookPos = new Vector3(hookX, hookY, HookWorldZ);
             _hook.position = hookPos;
             FitHookScale();
             UpdateHookShieldSize();

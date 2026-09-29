@@ -12,7 +12,7 @@ namespace IceFishing.View
         public const float HudReferenceWidth = 1080f;
         public const float HudReferenceHeight = 2160f;
         public const float HudScalerMatch = 0.5f;
-        public const string HubCampMapPath = "Assets/Art/Backgrounds/HubBackground_9x18_632x1264.png";
+        public const string HubCampMapPath = "Assets/Art/Backgrounds/HubBackground_9x18.png";
 
         static Font _font;
 
@@ -370,19 +370,71 @@ namespace IceFishing.View
                 return;
             }
 
-            image.sprite = campMap;
-            image.preserveAspect = true;
-            image.enabled = campMap != null;
-            var fitter = image.GetComponent<AspectRatioFitter>();
-            if (fitter == null)
+            if (campMap != null)
             {
-                fitter = image.gameObject.AddComponent<AspectRatioFitter>();
+                image.sprite = campMap;
             }
 
-            fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-            fitter.aspectRatio = campMap != null && campMap.rect.height > 0.001f
-                ? campMap.rect.width / campMap.rect.height
+            image.preserveAspect = false;
+            image.type = Image.Type.Simple;
+            image.enabled = image.sprite != null;
+            var fitter = image.GetComponent<AspectRatioFitter>();
+            if (fitter != null)
+            {
+                fitter.enabled = false;
+            }
+
+            FitCampBackdrop(image, image.transform.parent as RectTransform);
+        }
+
+        /// <summary>
+        /// 背景铺满父节点，多出来的边裁掉，不留黑边。
+        /// </summary>
+        public static void FitCampBackdrop(Image image, RectTransform root)
+        {
+            if (image == null || root == null)
+            {
+                return;
+            }
+
+            var fitter = image.GetComponent<AspectRatioFitter>();
+            if (fitter != null && fitter.enabled)
+            {
+                fitter.enabled = false;
+            }
+
+            var sprite = image.sprite;
+            var aspect = sprite != null && sprite.rect.height > 1f
+                ? sprite.rect.width / sprite.rect.height
                 : HudReferenceWidth / HudReferenceHeight;
+            var parentSize = root.rect.size;
+            if (parentSize.x < 1f || parentSize.y < 1f)
+            {
+                return;
+            }
+
+            float width;
+            float height;
+            if (parentSize.x / parentSize.y > aspect)
+            {
+                width = parentSize.x;
+                height = width / aspect;
+            }
+            else
+            {
+                height = parentSize.y;
+                width = height * aspect;
+            }
+
+            var rt = image.rectTransform;
+            var center = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = center;
+            rt.anchorMax = center;
+            rt.pivot = center;
+            rt.anchoredPosition = Vector2.zero;
+            rt.localScale = Vector3.one;
+            rt.sizeDelta = new Vector2(width, height);
+            image.preserveAspect = false;
         }
 
         public static Sprite LoadHubCampMap()

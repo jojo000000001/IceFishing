@@ -8,13 +8,13 @@ namespace IceFishing.View
         public const string GemSpritePath = "Assets/Art/Sprites/HookShieldLineGem.png";
 
         /// <summary>相对钩身最大边长的直径倍率，参考图需完整包住钩身。</summary>
-        public const float VisualPadding = 1.38f;
-        public const float GemLocalScale = 0.22f;
+        public const float VisualPadding = 1.28f;
+        public const float GemLocalScale = 0.2f;
 
-        public static readonly Color FillColor = new Color(0.45f, 0.82f, 1f, 0.55f);
-        public static readonly Color GemColor = new Color(0.55f, 1f, 0.62f, 0.9f);
+        public static readonly Color FillColor = Color.white;
+        public static readonly Color GemColor = Color.white;
 
-        public const int FillSortingOrder = 21;
+        public const int FillSortingOrder = 18;
         public const int GemSortingOrder = 22;
 
         public const string RootName = "HookShield";
@@ -136,9 +136,10 @@ namespace IceFishing.View
                 return;
             }
 
-            if (renderer.sprite == null)
+            var sprite = LoadSprite(spritePath);
+            if (sprite != null)
             {
-                renderer.sprite = LoadSprite(spritePath);
+                renderer.sprite = sprite;
             }
 
             renderer.color = color;

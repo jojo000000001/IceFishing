@@ -70,7 +70,7 @@ namespace IceFishing.EditorTools
             camera.nearClipPlane = 0.3f;
             camera.farClipPlane = 100f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.62f, 0.82f, 0.94f);
+            camera.backgroundColor = new Color(0.09f, 0.38f, 0.66f);
             camera.transform.position = new Vector3(0f, 9.6f, -10f);
             cameraObject.AddComponent<AudioListener>();
 
@@ -379,7 +379,7 @@ namespace IceFishing.EditorTools
         {
             EnsureFolder("Assets/Prefabs");
             EnsureFolder("Assets/Prefabs/World");
-            var waterTile = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Backgrounds/UnderwaterBlueTile.png");
+            var waterTile = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Backgrounds/WaterTileA.png");
             var leftIce = new[]
             {
                 AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Sprites/IceChunks/Ice_02.png"),

@@ -124,6 +124,7 @@ namespace IceFishing.View
         {
             EnsureCampBackdrop();
             UiFactory.FitFixedLayout(transform as RectTransform, ref _layout, "HubLayout", ref _fitting);
+            UiFactory.FitCampBackdrop(_campBackdrop, transform as RectTransform);
         }
 
         void EnsureCampBackdrop()

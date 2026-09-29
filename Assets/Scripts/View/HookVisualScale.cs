@@ -33,7 +33,25 @@ namespace IceFishing.View
             }
 
             var scale = ComputeUniformScale(sprite, worldHeight);
-            hook.localScale = new Vector3(scale, scale, 1f);
+            var parentX = 1f;
+            var parentY = 1f;
+            if (hook.parent != null)
+            {
+                parentX = Mathf.Abs(hook.parent.lossyScale.x);
+                parentY = Mathf.Abs(hook.parent.lossyScale.y);
+            }
+
+            if (parentX < 0.0001f)
+            {
+                parentX = 1f;
+            }
+
+            if (parentY < 0.0001f)
+            {
+                parentY = 1f;
+            }
+
+            hook.localScale = new Vector3(scale / parentX, scale / parentY, 1f);
         }
     }
 }

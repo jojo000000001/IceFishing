@@ -290,12 +290,6 @@ namespace IceFishing.View
                 return false;
             }
 
-            if (!left)
-            {
-                sprite = set[0];
-                return sprite != null;
-            }
-
             var pick = 0;
             for (var i = 0; i < set.Length; i++)
             {
