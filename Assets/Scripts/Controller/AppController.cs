@@ -29,6 +29,9 @@ namespace IceFishing.Controller
         float _introT = 1f;
         float _introFromDepth;
         float _introToDepth;
+        float _fishingHookEase = -1f;
+        float _lineDrop;
+        bool _campLineOff;
 
         public void EditorAssign(
             HubView hubView,
@@ -71,6 +74,8 @@ namespace IceFishing.Controller
             {
                 _regen.Tick(Time.deltaTime, _profile);
                 RefreshHub();
+                ParkHookUnderLine();
+                _worldView.SetWorldLineHidden(true);
                 return;
             }
 
@@ -79,6 +84,7 @@ namespace IceFishing.Controller
                 return;
             }
 
+            _worldView.SetLineWidth(_hubView.UnderwaterLineWidth);
             _worldView.GetHookLane(out var minX, out var maxX);
             float? targetX = null;
             if (!_fishingController.IsPaused && PointerSteerInput.TryGetWorldX(Camera.main, out var pointerX))
@@ -94,6 +100,15 @@ namespace IceFishing.Controller
             {
                 TickIntro(dt, x, minX, maxX);
             }
+            else if (!paused && _worldView.IsLineJoining)
+            {
+                float depth;
+                if (_worldView.TickLineJoin(dt, out depth))
+                {
+                    session.Depth = depth;
+                    session.HookX = _worldView.JoinHookX;
+                }
+            }
             else if (!paused)
             {
                 _fishingController.Tick(dt, minX, maxX, targetX);
@@ -105,9 +120,9 @@ namespace IceFishing.Controller
             }
 
             _worldView.ApplyCast(session);
-            if (_introT >= 1f)
+            if (!_worldView.IsLineJoining)
             {
-                if (!paused && _worldView.TryHookHeadHit(session, out var hit))
+                if (_introT >= 1f && !paused && _worldView.TryHookHeadHit(session, out var hit))
                 {
                     if (_fishingController.TryHandleHeadHit(hit, out var catchSlot))
                     {
@@ -172,6 +187,7 @@ namespace IceFishing.Controller
 
             _overlayView.Hide();
             _hubView.SetInteractable(false);
+            _hubView.SetFade(1f);
             var protection = _worldView != null ? _worldView.hookProtectionHits : 2;
             var lineMeters = _worldView != null ? _worldView.lineLengthMeters : 180f;
             var descent = _worldView != null ? _worldView.DescentMetersPerSecond : FishingRules.DescentMetersPerSecond;
@@ -185,12 +201,21 @@ namespace IceFishing.Controller
             var introCap = session != null ? session.MaxDepth : lineMeters;
             _introToDepth = Mathf.Min(Mathf.Max(_introFromDepth, FishingRules.IntroDepthMeters), introCap);
             _introT = _introToDepth <= _introFromDepth + 0.01f ? 1f : 0f;
-            _hubView.Hide();
+            _fishingHookEase = -1f;
+            _lineDrop = 0f;
+            _campLineOff = false;
+            _hubView.DropLineAndHook(0f);
             _hudView.SetFade(0f);
             _worldView.RefreshDropFromSceneHook();
             if (_introT < 1f)
             {
                 _worldView.BeginDive(_introToDepth);
+                _worldView.SetIntroEndSlope(_worldView.DescentMetersPerSecond);
+            }
+            else
+            {
+                _hubView.Hide();
+                _worldView.SetHookRevealed(true);
             }
 
             if (session != null)
@@ -216,11 +241,103 @@ namespace IceFishing.Controller
 
             session.Steer(dt, targetX, minX, maxX);
             _introT = Mathf.Clamp01(_introT + dt / FishingRules.IntroDuration);
-            var t = Mathf.SmoothStep(0f, 1f, _introT);
+            _worldView.SetDiveT(_introT);
+            var t = _worldView.CurrentIntroEase;
             session.Depth = Mathf.Lerp(_introFromDepth, _introToDepth, t);
             session.Phase = CastPhase.Descending;
-            _worldView.SetDiveT(_introT);
+            if (!_campLineOff)
+            {
+                _lineDrop += Screen.height * dt * 1.8f;
+            }
+
+            _hubView.DropLineAndHook(_lineDrop);
+            _hubView.SetDiveAmount(t);
+            var fromY = _worldView.HubCameraHeight;
+            var nowY = Mathf.Lerp(fromY, -_introToDepth * _worldView.UnitsPerMeter, t);
+            _hubView.MatchCameraDrop(fromY, nowY, CampField.WorldOrtho * 2f);
+            _hubView.SetFade(1f - Mathf.Clamp01((t - 0.72f) / 0.28f));
+            if (!_campLineOff && (_hubView.IsLineHookBelowScreen() || _introT >= 1f))
+            {
+                _campLineOff = true;
+                _fishingHookEase = t;
+            }
+
+            if (!_campLineOff)
+            {
+                ParkHookUnderLine();
+            }
+            else
+            {
+                SyncRodLine(t, Mathf.InverseLerp(_fishingHookEase, 1f, t), true);
+            }
+            if (_introT >= 1f)
+            {
+                _hubView.SetDiveAmount(1f);
+                _worldView.EndRodSplice();
+                _hubView.Hide();
+                _worldView.SetWorldLineHidden(false);
+            }
+            else
+            {
+                _worldView.SetWorldLineHidden(!_campLineOff);
+            }
+
             _hudView.Bind(session);
+        }
+
+        void LateUpdate()
+        {
+            if (_screen == AppScreen.Hub)
+            {
+                ParkHookUnderLine();
+            }
+        }
+
+        void ParkHookUnderLine()
+        {
+            if (_worldView == null || _hubView == null || !_hubView.TryGetLineTip(out var tip))
+            {
+                return;
+            }
+
+            _worldView.PrepareHook(CanvasToWorld(tip));
+        }
+
+        void SyncRodLine(float diveT, float hookT, bool showHook)
+        {
+            if (!_hubView.TryGetLineTip(out var lineTip))
+            {
+                return;
+            }
+
+            var lineEnd = CanvasToWorld(lineTip);
+            var session = _fishingController.Session;
+            if (session != null)
+            {
+                session.HookX = lineEnd.x;
+            }
+
+            _worldView.ShowRodLine(lineEnd, diveT, hookT, showHook);
+        }
+
+        Vector3 CanvasToWorld(Vector3 canvasWorld)
+        {
+            var canvas = _hubView.GetComponentInParent<Canvas>();
+            Camera uiCamera = null;
+            if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                uiCamera = canvas.worldCamera != null ? canvas.worldCamera : Camera.main;
+            }
+
+            var screen = RectTransformUtility.WorldToScreenPoint(uiCamera, canvasWorld);
+            var worldCamera = Camera.main;
+            if (worldCamera == null)
+            {
+                return canvasWorld;
+            }
+
+            var distance = Mathf.Abs(worldCamera.transform.position.z + 0.12f);
+            return worldCamera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, distance));
         }
 
         void TickFishingUiFade()
@@ -250,7 +367,9 @@ namespace IceFishing.Controller
             _overlayView.Hide();
             _worldView.ClearFish();
             _worldView.ApplyScreen(AppScreen.Hub);
+            _worldView.SetWorldLineHidden(true);
             _hubView.Show();
+            _worldView.SetHookRevealed(false);
             _screen = AppScreen.Hub;
             RefreshHub();
             _bus.RaiseScreenChanged(_screen);

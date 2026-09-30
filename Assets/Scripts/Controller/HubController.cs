@@ -43,7 +43,7 @@ namespace IceFishing.Controller
                 return;
             }
 
-            _startFishing?.Invoke();
+            _view.PlayCast(() => _startFishing?.Invoke());
         }
 
         void OnGear()

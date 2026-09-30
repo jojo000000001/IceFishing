@@ -143,8 +143,13 @@ namespace IceFishing.View
             RecycleOffscreen(session);
             if (!_seeded)
             {
-                Seed(session);
-                _seeded = true;
+                var ahead = FillDensity(session, 2, false);
+                var sides = FillDensity(session, 1, true);
+                if (_alive.Count >= _maxAlive
+                    || (session.Depth >= FishingRules.FishSpawnMinDepthMeters && !ahead && !sides))
+                {
+                    _seeded = true;
+                }
             }
 
             if (session.Phase == CastPhase.Settle)
@@ -197,12 +202,6 @@ namespace IceFishing.View
             var hx = Mathf.Abs(box.size.x * lossy.x) * 0.5f + radius;
             var hy = Mathf.Abs(box.size.y * lossy.y) * 0.5f + radius;
             return Mathf.Abs(point.x - center.x) <= hx && Mathf.Abs(point.y - center.y) <= hy;
-        }
-
-        void Seed(CastSession session)
-        {
-            FillDensity(session, _maxAlive, false);
-            FillDensity(session, 6, true);
         }
 
         void SpawnTick(float dt, CastSession session)

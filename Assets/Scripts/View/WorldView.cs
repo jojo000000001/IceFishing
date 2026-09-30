@@ -46,10 +46,21 @@ namespace IceFishing.View
         public float cameraStopBeforeMaxMeters = 5f;
         [Tooltip("所有上钩鱼嘴对齐的点（Hook 本地坐标：X 负=左，Y 负=下）。")]
         public Vector2 hookMouthAnchorLocal = new Vector2(-0.1f, -0.02f);
+        float _lineWidth = 0.07f;
         float _lastHookX;
         float _lastDepthMeters;
         float _introT = 1f;
         float _introEndDepth;
+        float _introEndSlope = 1f;
+        bool _revealHook = true;
+        bool _hookWarmed;
+        bool _hookParked;
+        bool _hideWorldLine = true;
+        bool _joining;
+        bool _rodLineActive;
+        float _joinT;
+        Vector3 _joinFrom;
+        float _joinX;
         Vector2 _dropStart;
         Color _hubSky = new Color(0.62f, 0.82f, 0.94f);
         Color _waterSky = new Color(0f, 0.455f, 0.757f);
@@ -198,7 +209,16 @@ namespace IceFishing.View
                 LayoutWorld();
                 LookAtHub();
                 TickUnderwater();
-                PlaceHubHook();
+                if (!_rodLineActive && !_hookParked)
+                {
+                    PlaceHubHook();
+                }
+
+                if (_line != null)
+                {
+                    _line.enabled = false;
+                }
+
                 return;
             }
 
@@ -213,6 +233,11 @@ namespace IceFishing.View
                 {
                     PlaceFishingHook(_lastHookX, _lastDepthMeters);
                 }
+            }
+
+            if (_hideWorldLine && _line != null)
+            {
+                _line.enabled = false;
             }
         }
 
@@ -286,6 +311,13 @@ namespace IceFishing.View
 
             _lastHookX = session.HookX;
             _lastDepthMeters = session.Depth;
+            if (_joining)
+            {
+                UpdateHookShield(session);
+                TickUnderwater();
+                return;
+            }
+
             if (_introT >= 1f)
             {
                 ApplyCastCamera(CameraFollowDepthMeters(session));
@@ -296,13 +328,237 @@ namespace IceFishing.View
             TickUnderwater();
         }
 
+        public void SetIntroEndSlope(float depthMetersPerSecond)
+        {
+            var camFrom = _camp != null ? _camp.HubCameraY : CampField.WorldOrtho * 1.2f;
+            var camTo = -_introEndDepth * UnitsPerMeter;
+            var travel = Mathf.Max(0.01f, camFrom - camTo);
+            var cameraSpeed = Mathf.Max(0.1f, depthMetersPerSecond) * UnitsPerMeter;
+            _introEndSlope = cameraSpeed * FishingRules.IntroDuration / travel;
+        }
+
+        public float CurrentIntroEase
+        {
+            get { return EaseIntoDescent(_introT, _introEndSlope); }
+        }
+
+        static float EaseIntoDescent(float linearT, float endSlope)
+        {
+            var s = Mathf.Clamp(endSlope, 0.05f, 2.5f);
+            var t = Mathf.Clamp01(linearT);
+            var a = 3f - s;
+            var b = s - 2f;
+            return (a + b * t) * t * t;
+        }
+
         public void BeginDive(float endDepth)
         {
             _introEndDepth = Mathf.Max(0f, endDepth);
             _introT = 0f;
+            _revealHook = false;
+            _rodLineActive = false;
             CaptureDropFromHook();
             _dropStart = hookDropPosition;
             _lastHookX = _dropStart.x;
+            ApplyHookReveal();
+        }
+
+        public bool IsLineJoining
+        {
+            get { return _joining; }
+        }
+
+        public float JoinHookX
+        {
+            get { return _joinX; }
+        }
+
+        public void SetWorldLineHidden(bool hidden)
+        {
+            _hideWorldLine = hidden;
+            if (hidden && _line != null)
+            {
+                _line.enabled = false;
+            }
+        }
+
+        public void SetLineWidth(float width)
+        {
+            _lineWidth = Mathf.Clamp(width, 0.02f, 0.25f);
+            if (_line != null)
+            {
+                ApplyLineWidth(_line);
+            }
+        }
+
+        void ApplyLineWidth(LineRenderer line)
+        {
+            line.startWidth = _lineWidth;
+            line.endWidth = _lineWidth;
+        }
+
+        public void PrepareHook(Vector3 worldPoint)
+        {
+            EnsureHookReference();
+            if (_hook == null)
+            {
+                return;
+            }
+
+            if (!_hook.gameObject.activeSelf)
+            {
+                _hook.gameObject.SetActive(true);
+            }
+
+            if (!_hookWarmed)
+            {
+                EnsureSprites();
+                var hookSprite = ResolveHookSprite();
+                Paint(_hook, hookSprite != null ? hookSprite : _square, hookSprite != null ? Color.white : UiTheme.Hook);
+                FitHookScale();
+                EnsureHookShield();
+                WarmLine();
+                _hookWarmed = true;
+            }
+
+            _hookParked = true;
+            _hook.position = new Vector3(worldPoint.x, worldPoint.y, HookWorldZ);
+            if (!_revealHook && !_rodLineActive)
+            {
+                var renderer = _hook.GetComponent<SpriteRenderer>();
+                if (renderer != null)
+                {
+                    renderer.enabled = false;
+                }
+
+                if (_hookShield != null)
+                {
+                    _hookShield.gameObject.SetActive(false);
+                }
+
+                if (_line != null)
+                {
+                    _line.enabled = false;
+                }
+            }
+        }
+
+        void WarmLine()
+        {
+            if (_line == null)
+            {
+                return;
+            }
+
+            var shader = Shader.Find("Sprites/Default");
+            if (shader != null && (_line.sharedMaterial == null || _line.sharedMaterial.shader != shader))
+            {
+                _line.material = new Material(shader);
+            }
+
+            ApplyLineWidth(_line);
+            _line.startColor = Color.black;
+            _line.endColor = Color.black;
+            _line.sortingOrder = 20;
+        }
+
+        public void ShowRodLine(Vector3 lineEnd, float diveT, float hookT, bool showHook)
+        {
+            if (_worldCamera == null)
+            {
+                _worldCamera = Camera.main;
+            }
+
+            if (_line == null || _worldCamera == null)
+            {
+                EnsureHookReference();
+            }
+
+            if (_line == null || _worldCamera == null)
+            {
+                return;
+            }
+
+            WarmLine();
+            _hookParked = false;
+            _revealHook = showHook;
+            _rodLineActive = true;
+            var startY = lineEnd.y;
+            var targetY = -Mathf.Max(_introEndDepth, FishingRules.IntroDepthMeters) * UnitsPerMeter
+                + _worldCamera.orthographicSize * FishingRules.HookScreenY;
+            var endY = Mathf.Lerp(lineEnd.y, targetY, Mathf.Clamp01(hookT));
+            if (endY > startY)
+            {
+                endY = startY;
+            }
+
+            if (_hook != null)
+            {
+                _hook.gameObject.SetActive(true);
+                _hook.position = new Vector3(lineEnd.x, endY, HookWorldZ);
+                ApplyHookReveal();
+            }
+
+            _line.enabled = !_hideWorldLine;
+            ApplyLineWidth(_line);
+            _line.startColor = Color.black;
+            _line.endColor = Color.black;
+            _line.sortingOrder = 20;
+            var attach = GetHookLineAttachWorld();
+            _line.positionCount = 2;
+            _line.SetPosition(0, new Vector3(attach.x, startY, attach.z));
+            _line.SetPosition(1, attach);
+            _lastHookX = lineEnd.x;
+        }
+
+        public void EndRodSplice()
+        {
+            _rodLineActive = false;
+            _joining = false;
+            _revealHook = true;
+        }
+
+        public void MoveExistingHookTo(Vector3 worldPoint)
+        {
+            if (_hook == null)
+            {
+                _hook = FindHookTransform();
+            }
+
+            if (_hook == null || _worldCamera == null)
+            {
+                return;
+            }
+
+            _joining = false;
+            _revealHook = true;
+            _rodLineActive = true;
+            PlaceHookAt(worldPoint.x, worldPoint.y);
+            ApplyHookReveal();
+        }
+
+        public bool TickLineJoin(float dt, out float depthMeters)
+        {
+            depthMeters = 0f;
+            if (!_joining || _worldCamera == null)
+            {
+                return !_joining;
+            }
+
+            _joinT = Mathf.Clamp01(_joinT + dt / 0.85f);
+            var targetY = -_introEndDepth * UnitsPerMeter + _worldCamera.orthographicSize * FishingRules.HookScreenY;
+            var y = Mathf.Lerp(_joinFrom.y, targetY, Mathf.SmoothStep(0f, 1f, _joinT));
+            PlaceHookAt(_joinX, y);
+            if (_joinT < 1f)
+            {
+                return false;
+            }
+
+            _joining = false;
+            _revealHook = true;
+            ApplyHookReveal();
+            depthMeters = Mathf.Max(0f, (_worldCamera.orthographicSize * FishingRules.HookScreenY - y) / UnitsPerMeter);
+            return true;
         }
 
         public void RefreshDropFromSceneHook()
@@ -313,6 +569,20 @@ namespace IceFishing.View
         public void SetDiveT(float t)
         {
             _introT = Mathf.Clamp01(t);
+            if (_worldCamera == null)
+            {
+                _worldCamera = Camera.main;
+            }
+
+            if (_worldCamera == null || _screen != AppScreen.Fishing)
+            {
+                return;
+            }
+
+            var eased = CurrentIntroEase;
+            var camFrom = _camp != null ? _camp.HubCameraY : CampField.WorldOrtho * 1.2f;
+            var camTo = -_introEndDepth * UnitsPerMeter;
+            SetCameraY(Mathf.Lerp(camFrom, camTo, eased));
         }
 
         public void BeginFish()
@@ -478,6 +748,11 @@ namespace IceFishing.View
             _hookCatchStack.localPosition = Vector3.zero;
             _hookCatchStack.localRotation = Quaternion.identity;
             _hookCatchStack.localScale = Vector3.one;
+        }
+
+        public float HubCameraHeight
+        {
+            get { return _camp != null ? _camp.HubCameraY : CampField.WorldOrtho * 1.2f; }
         }
 
         public float UnitsPerMeter
@@ -653,8 +928,17 @@ namespace IceFishing.View
             EnsureHookShield();
             if (_line != null)
             {
-                _line.enabled = _hook != null && _hook.gameObject.activeSelf;
+                var showLine = !_hideWorldLine
+                    && (_rodLineActive
+                    || (_screen == AppScreen.Fishing && (_revealHook || _joining) && _hook != null && _hook.gameObject.activeSelf));
+                _line.enabled = showLine;
             }
+        }
+
+        public void SetHookRevealed(bool revealed)
+        {
+            _revealHook = revealed;
+            ApplyHookReveal();
         }
 
         void ShowHook()
@@ -662,6 +946,26 @@ namespace IceFishing.View
             if (_hook != null)
             {
                 _hook.gameObject.SetActive(true);
+                ApplyHookReveal();
+            }
+        }
+
+        void ApplyHookReveal()
+        {
+            if (_hook == null)
+            {
+                return;
+            }
+
+            var renderer = _hook.GetComponent<SpriteRenderer>();
+            if (renderer != null)
+            {
+                renderer.enabled = _revealHook;
+            }
+
+            if (!_revealHook && _hookShield != null)
+            {
+                _hookShield.gameObject.SetActive(false);
             }
         }
 
@@ -714,16 +1018,6 @@ namespace IceFishing.View
                 if (hooks[i] != null && hooks[i].name == "Hook")
                 {
                     return hooks[i];
-                }
-            }
-
-            var hud = Object.FindFirstObjectByType<FishingHudView>(FindObjectsInactive.Include);
-            if (hud != null)
-            {
-                var onHud = hud.transform.Find("Hook");
-                if (onHud != null)
-                {
-                    return onHud;
                 }
             }
 
@@ -806,14 +1100,39 @@ namespace IceFishing.View
                 return;
             }
 
+            if (_hideWorldLine || (_screen != AppScreen.Fishing && !_rodLineActive))
+            {
+                _line.enabled = false;
+                return;
+            }
+
+            var shader = Shader.Find("Sprites/Default");
+            if (shader != null && (_line.sharedMaterial == null || _line.sharedMaterial.shader != shader))
+            {
+                _line.material = new Material(shader);
+            }
+
             var attach = GetHookLineAttachWorld();
             var waterline = _camp != null ? _camp.WaterlineY : CampField.WorldOrtho;
             var viewTop = _worldCamera.transform.position.y + _worldCamera.orthographicSize;
             var topY = Mathf.Min(viewTop, waterline);
+            var x = _joining ? _joinX : attach.x;
+            var endY = attach.y;
+            var startY = _joining ? Mathf.Max(topY, _joinFrom.y) : topY;
+            if (!_revealHook && !_joining)
+            {
+                _line.enabled = false;
+                return;
+            }
+
             _line.enabled = true;
+            ApplyLineWidth(_line);
+            _line.startColor = Color.black;
+            _line.endColor = Color.black;
+            _line.sortingOrder = 20;
             _line.positionCount = 2;
-            _line.SetPosition(0, new Vector3(attach.x, topY, attach.z));
-            _line.SetPosition(1, attach);
+            _line.SetPosition(0, new Vector3(x, startY, attach.z));
+            _line.SetPosition(1, new Vector3(x, endY, attach.z));
         }
 
         void PlaceIntro(float hookX)
@@ -823,10 +1142,14 @@ namespace IceFishing.View
                 return;
             }
 
-            var t = Mathf.SmoothStep(0f, 1f, _introT);
+            var t = CurrentIntroEase;
             var camFrom = _camp != null ? _camp.HubCameraY : CampField.WorldOrtho * 1.2f;
             var camTo = -_introEndDepth * UnitsPerMeter;
             SetCameraY(Mathf.Lerp(camFrom, camTo, t));
+            if (_rodLineActive)
+            {
+                return;
+            }
             var hookTo = camTo + _worldCamera.orthographicSize * IceFishing.Model.FishingRules.HookScreenY;
             PlaceHookAt(hookX, Mathf.Lerp(_dropStart.y, hookTo, t));
         }
@@ -930,7 +1253,8 @@ namespace IceFishing.View
                 return;
             }
 
-            var show = _screen == AppScreen.Fishing
+            var show = _revealHook
+                && _screen == AppScreen.Fishing
                 && session != null
                 && session.ProtectionLeft > 0
                 && session.Phase == CastPhase.Descending;
@@ -983,8 +1307,8 @@ namespace IceFishing.View
         {
             line.useWorldSpace = true;
             line.positionCount = 2;
-            line.startWidth = 0.05f;
-            line.endWidth = 0.05f;
+            line.startWidth = 0.07f;
+            line.endWidth = line.startWidth;
             line.numCapVertices = 2;
             line.textureMode = LineTextureMode.Stretch;
             var shader = Shader.Find("Sprites/Default");
@@ -993,8 +1317,8 @@ namespace IceFishing.View
                 line.material = new Material(shader);
             }
 
-            line.startColor = new Color(0.08f, 0.10f, 0.14f);
-            line.endColor = new Color(0.08f, 0.10f, 0.14f);
+            line.startColor = Color.black;
+            line.endColor = Color.black;
         }
 
         void ClearChildren()
