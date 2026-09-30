@@ -141,6 +141,7 @@ namespace IceFishing.View
 
         public void Show()
         {
+            _casting = false;
             _sinking = false;
             _sinkAmount = 0f;
             _lineGrow = 1f;
@@ -176,6 +177,7 @@ namespace IceFishing.View
 
         public void Hide()
         {
+            _casting = false;
             gameObject.SetActive(false);
             SetInteractable(true);
             SetFade(1f);
@@ -684,14 +686,22 @@ namespace IceFishing.View
         void HideStaleLinePieces(RectTransform root, int count)
         {
             var seen = new bool[count];
-            var keptHook = false;
+            Transform keepHook = null;
             for (var i = 0; i < root.childCount; i++)
             {
                 var child = root.GetChild(i);
                 if (child.name == "LineHook")
                 {
-                    child.gameObject.SetActive(!keptHook);
-                    keptHook = true;
+                    keepHook = child;
+                }
+            }
+
+            for (var i = 0; i < root.childCount; i++)
+            {
+                var child = root.GetChild(i);
+                if (child.name == "LineHook")
+                {
+                    child.gameObject.SetActive(child == keepHook);
                     continue;
                 }
 
@@ -731,6 +741,7 @@ namespace IceFishing.View
             hook.preserveAspect = true;
             hook.color = Color.white;
             hook.enabled = _lineHookVisible;
+            hook.gameObject.SetActive(true);
 #if UNITY_EDITOR
             if (hook.sprite == null)
             {

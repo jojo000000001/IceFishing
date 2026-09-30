@@ -202,6 +202,7 @@ namespace IceFishing.Controller
             _introToDepth = Mathf.Min(Mathf.Max(_introFromDepth, FishingRules.IntroDepthMeters), introCap);
             _introT = _introToDepth <= _introFromDepth + 0.01f ? 1f : 0f;
             _fishingHookEase = -1f;
+            _fishingHookEase = -1f;
             _lineDrop = 0f;
             _campLineOff = false;
             _hubView.DropLineAndHook(0f);
@@ -368,6 +369,9 @@ namespace IceFishing.Controller
             _worldView.ClearFish();
             _worldView.ApplyScreen(AppScreen.Hub);
             _worldView.SetWorldLineHidden(true);
+            _lineDrop = 0f;
+            _campLineOff = false;
+            _fishingHookEase = -1f;
             _hubView.Show();
             _worldView.SetHookRevealed(false);
             _screen = AppScreen.Hub;
