@@ -164,6 +164,7 @@ namespace IceFishing.View
 
             SpawnTick(dt, session);
             TryFillMidDepthGap(session);
+            TryFillDenseBand(session);
         }
 
         public bool TryGetHeadHit(Vector2 hookPos, float radius, out FishView fish)
@@ -216,6 +217,69 @@ namespace IceFishing.View
             var sides = FillDensity(session, 2, true);
             var extra = _alive.Count < _maxAlive && TrySpawnBonus(session);
             _spawnCd = ahead || sides || extra ? 0.07f : 0.16f;
+        }
+
+        const float DenseBandLo = 50f;
+        const float DenseBandHi = 60f;
+        const int DensePerLane = 5;
+
+        void TryFillDenseBand(CastSession session)
+        {
+            if (_alive.Count >= _maxAlive || session.MaxDepth < DenseBandLo)
+            {
+                return;
+            }
+
+            if (session.Depth < DenseBandLo - 8f)
+            {
+                return;
+            }
+
+            if (session.Depth > DenseBandHi + 14f)
+            {
+                return;
+            }
+
+            var spawned = 0;
+            for (var depth = 55f; depth <= 60f; depth += 1.5f)
+            {
+                var y = -depth * _unitsPerMeter;
+                var need = DensePerLane - CountNearY(y, _unitsPerMeter * 1.1f);
+                for (var n = 0; n < need; n++)
+                {
+                    if (_alive.Count >= _maxAlive || spawned >= 2)
+                    {
+                        return;
+                    }
+
+                    if (!TrySpawnAt(session, y, true, true))
+                    {
+                        break;
+                    }
+
+                    spawned++;
+                }
+            }
+        }
+
+        int CountNearY(float y, float range)
+        {
+            var count = 0;
+            for (var i = 0; i < _alive.Count; i++)
+            {
+                var view = _alive[i];
+                if (view == null || !view.gameObject.activeSelf || view.Consumed)
+                {
+                    continue;
+                }
+
+                if (Mathf.Abs(view.transform.position.y - y) <= range)
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         const float MidDepthGapFillLo = 58f;
@@ -388,7 +452,7 @@ namespace IceFishing.View
             return false;
         }
 
-        bool TrySpawnAt(CastSession session, float y)
+        bool TrySpawnAt(CastSession session, float y, bool allowPacked = false, bool keepDepth = false)
         {
             if (_catalog == null || _catalog.Items == null || _catalog.Items.Length == 0)
             {
@@ -425,8 +489,8 @@ namespace IceFishing.View
             var view = Rent(def);
             var swimSpeed = SwimSpeedFor(def);
             var halfH = Mathf.Max(0.2f, def.WorldHeight * 0.5f);
-            var spawnY = SnapToLane(y);
-            if (LaneHasFish(spawnY))
+            var spawnY = keepDepth ? y : SnapToLane(y);
+            if (!allowPacked && LaneHasFish(spawnY))
             {
                 ReleaseToPool(view);
                 return false;

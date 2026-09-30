@@ -462,9 +462,9 @@ namespace IceFishing.View
             SetInteractable(false);
             yield return TurnGrip(0f, 28f, 0.45f);
             yield return TurnGrip(28f, -18f, 0.22f);
+            onComplete?.Invoke();
             yield return TurnGrip(-18f, 0f, 0.35f);
             _casting = false;
-            onComplete?.Invoke();
         }
 
         IEnumerator TurnGrip(float from, float to, float seconds)
