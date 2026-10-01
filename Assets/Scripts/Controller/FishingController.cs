@@ -52,6 +52,7 @@ namespace IceFishing.Controller
                 descentMetersPerSecond,
                 ascendCatchMetersPerSecond,
                 ascentMetersPerSecond);
+            _hud.StatsProfile?.ApplyToSession(_session);
             _paused = false;
             _pause.Hide();
             _hud.Show();

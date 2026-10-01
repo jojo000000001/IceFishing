@@ -483,6 +483,7 @@ namespace IceFishing.EditorTools
             EnsureFolder("Assets/Prefabs/UI");
             EnsureFolder(HudArtFolder);
             ImportHudSprites();
+            var statsProfile = FishingHudStatsAssetBuilder.Ensure();
             var sprites = LoadHudSprites();
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
             if (existing != null)
@@ -490,7 +491,7 @@ namespace IceFishing.EditorTools
                 var root = PrefabUtility.LoadPrefabContents(HudPrefabPath);
                 try
                 {
-                    UiFactory.PopulateHud(root.transform, sprites);
+                    UiFactory.PopulateHud(root.transform, sprites, statsProfile);
                     PrefabUtility.SaveAsPrefabAsset(root, HudPrefabPath);
                 }
                 finally
@@ -559,7 +560,7 @@ namespace IceFishing.EditorTools
             importer.SaveAndReimport();
         }
 
-        static void EnsureFolder(string path)
+        public static void EnsureFolder(string path)
         {
             if (AssetDatabase.IsValidFolder(path))
             {

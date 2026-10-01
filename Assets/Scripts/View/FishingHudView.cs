@@ -14,38 +14,46 @@ namespace IceFishing.View
     public sealed class FishingHudView : MonoBehaviour
     {
         [SerializeField] Text _phaseText;
-        [SerializeField] Text _depthText;
-        [SerializeField] Text _protectionText;
-        [Tooltip("已钓数量 / 可携带上限（第二条统计）")]
-        [SerializeField] Text _haulText;
         [SerializeField] Button _pauseButton;
         [SerializeField] RectTransform _layout;
+        [SerializeField] FishingHudStatsDefinition _statsProfile;
+        [SerializeField] HudStatPillView[] _statPills;
 
         bool _wired;
         bool _fitting;
 
         public event Action PauseClicked;
 
-        public void Configure(Text phase, Text depth, Text protection, Text haul, Button pause, RectTransform layout)
+        public FishingHudStatsDefinition StatsProfile => _statsProfile;
+
+        public void Configure(
+            Text phase,
+            HudStatPillView[] statPills,
+            FishingHudStatsDefinition statsProfile,
+            Button pause,
+            RectTransform layout)
         {
             _phaseText = phase;
-            _depthText = depth;
-            _protectionText = protection;
-            _haulText = haul;
+            _statPills = statPills;
+            _statsProfile = statsProfile;
             _pauseButton = pause;
             _layout = layout;
             Wire();
+            ApplyStatPresentation();
             FitLayout();
         }
 
         void Awake()
         {
+            ResolveStatPills();
             Wire();
+            ApplyStatPresentation();
             FitLayout();
         }
 
         void OnEnable()
         {
+            ApplyStatPresentation();
             FitLayout();
         }
 
@@ -62,6 +70,7 @@ namespace IceFishing.View
         public void Show()
         {
             gameObject.SetActive(true);
+            ApplyStatPresentation();
             FitLayout();
         }
 
@@ -100,26 +109,93 @@ namespace IceFishing.View
                 return;
             }
 
-            ApplyFont();
+            ApplyStatPresentation();
+
+            var font = UiFactory.ResolveFont();
+            ApplyFont(font);
             if (_phaseText != null)
             {
                 _phaseText.text = PhaseLabel(session.Phase);
             }
 
-            if (_depthText != null)
+            ResolveStatPills();
+            if (_statPills == null)
             {
-                _depthText.text = Mathf.RoundToInt(session.Depth) + "/" + Mathf.RoundToInt(session.MaxDepth);
+                return;
             }
 
-            if (_protectionText != null)
+            for (var i = 0; i < _statPills.Length; i++)
             {
-                _protectionText.text = session.ProtectionLeft + "/" + session.ProtectionMax;
+                if (_statPills[i] != null)
+                {
+                    _statPills[i].BindValue(session, font);
+                }
+            }
+        }
+
+        void ResolveStatPills()
+        {
+            if (_statPills != null && _statPills.Length > 0)
+            {
+                return;
             }
 
-            if (_haulText != null)
+            _statPills = GetComponentsInChildren<HudStatPillView>(true);
+        }
+
+        void ApplyStatPresentation()
+        {
+            ResolveStatPills();
+            if (_statPills == null || _statPills.Length == 0)
             {
-                _haulText.text = session.CaughtCount + "/" + session.Capacity;
+                return;
             }
+
+            var sharedPill = _statsProfile != null ? _statsProfile.SharedPill : null;
+            var pillTint = _statsProfile != null
+                ? _statsProfile.PillTint
+                : FishingHudStatsDefinition.DefaultPillTint;
+            for (var i = 0; i < _statPills.Length; i++)
+            {
+                var pill = _statPills[i];
+                if (pill == null)
+                {
+                    continue;
+                }
+
+                pill.ResolveReferences();
+                pill.SetDefinition(ResolveDefinitionForPill(pill, i));
+                pill.ApplyPresentation(sharedPill, pillTint);
+            }
+        }
+
+        FishingHudStatDefinition ResolveDefinitionForPill(HudStatPillView pill, int index)
+        {
+            var stats = _statsProfile != null ? _statsProfile.Stats : null;
+            if (stats == null || stats.Length == 0)
+            {
+                return pill.Definition;
+            }
+
+            var kind = pill.Definition != null
+                ? pill.Definition.Kind
+                : index >= 0 && index < stats.Length && stats[index] != null
+                    ? stats[index].Kind
+                    : FishingHudStatKind.Protection;
+            for (var i = 0; i < stats.Length; i++)
+            {
+                if (stats[i] != null && stats[i].Kind == kind)
+                {
+                    return stats[i];
+                }
+            }
+
+            if (index >= 0 && index < stats.Length && stats[index] != null)
+            {
+                return stats[index];
+            }
+
+            return pill.Definition;
         }
 
         void Wire()
@@ -133,13 +209,9 @@ namespace IceFishing.View
             _wired = true;
         }
 
-        void ApplyFont()
+        void ApplyFont(Font font)
         {
-            var font = UiFactory.ResolveFont();
             SetFont(_phaseText, font);
-            SetFont(_depthText, font);
-            SetFont(_protectionText, font);
-            SetFont(_haulText, font);
         }
 
         static void SetFont(Text text, Font font)

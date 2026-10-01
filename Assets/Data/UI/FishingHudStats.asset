@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0427f929cc768a44a6cd83e765196dc, type: 3}
+  m_Name: FishingHudStats
+  m_EditorClassIdentifier: 
+  SharedPill: {fileID: 21300000, guid: 7df5303cdd9f4524b5e1d246ce0315af, type: 3}
+  PillTint: {r: 0.06, g: 0.14, b: 0.24, a: 0.82}
+  Stats:
+  - {fileID: 11400000, guid: 87c37efbe64149d439bc2991969c1c23, type: 2}
+  - {fileID: 11400000, guid: 14aa537d375f91347b7eb659165b1a2a, type: 2}
+  - {fileID: 11400000, guid: c12def83735e58146845e583efb29f1b, type: 2}

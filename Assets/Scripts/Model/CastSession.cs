@@ -90,12 +90,6 @@ namespace IceFishing.Model
 
             if (Phase == CastPhase.Descending)
             {
-                if (ProtectionLeft <= 0)
-                {
-                    Phase = CastPhase.Ascending;
-                    return;
-                }
-
                 Depth += DescentMetersPerSecond * dt;
                 if (Depth >= MaxDepth)
                 {
@@ -132,13 +126,10 @@ namespace IceFishing.Model
                 if (ProtectionLeft > 0)
                 {
                     ProtectionLeft--;
+                    return;
                 }
 
-                if (ProtectionLeft <= 0)
-                {
-                    Phase = CastPhase.Ascending;
-                }
-
+                Phase = CastPhase.Ascending;
                 return;
             }
 

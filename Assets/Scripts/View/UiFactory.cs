@@ -1,5 +1,10 @@
+using System.Collections.Generic;
+using IceFishing.Model;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace IceFishing.View
 {
@@ -520,7 +525,10 @@ namespace IceFishing.View
             return PopulateHud(root.transform, sprites);
         }
 
-        public static FishingHudView PopulateHud(Transform root, HudSprites sprites = default)
+        public static FishingHudView PopulateHud(
+            Transform root,
+            HudSprites sprites = default,
+            FishingHudStatsDefinition statsProfile = null)
         {
             for (var i = root.childCount - 1; i >= 0; i--)
             {
@@ -547,9 +555,37 @@ namespace IceFishing.View
             pauseRt.anchoredPosition = new Vector2(-24f, -24f);
             pauseRt.sizeDelta = new Vector2(96f, 96f);
 
-            var protection = CreateStatPill(layout, "Protection", sprites.Pill, sprites.Haul, "2/2", -24f);
-            var capacity = CreateStatPill(layout, "Capacity", sprites.Pill, sprites.Protection, "0/5", -96f);
-            var depth = CreateStatPill(layout, "Depth", sprites.Pill, sprites.Depth, "0/150", -168f);
+            statsProfile = statsProfile ?? ResolveHudStatsProfile();
+            var statPills = new List<HudStatPillView>(3);
+            if (statsProfile != null && statsProfile.Stats != null && statsProfile.Stats.Length > 0)
+            {
+                var sharedPill = statsProfile.SharedPill != null ? statsProfile.SharedPill : sprites.Pill;
+                for (var i = 0; i < statsProfile.Stats.Length; i++)
+                {
+                    var definition = statsProfile.Stats[i];
+                    if (definition == null)
+                    {
+                        continue;
+                    }
+
+                    statPills.Add(CreateStatPill(layout, definition, sharedPill));
+                }
+            }
+            else
+            {
+                statPills.Add(CreateStatPill(
+                    layout,
+                    BuildFallbackStat(FishingHudStatKind.Protection, sprites.Protection, "0/5", -24f),
+                    sprites.Pill));
+                statPills.Add(CreateStatPill(
+                    layout,
+                    BuildFallbackStat(FishingHudStatKind.Haul, sprites.Haul, "2/2", -96f),
+                    sprites.Pill));
+                statPills.Add(CreateStatPill(
+                    layout,
+                    BuildFallbackStat(FishingHudStatKind.Depth, sprites.Depth, "0/150", -168f),
+                    sprites.Pill));
+            }
 
             var phase = CreateText(layout, "Phase", "下潜躲避", 32, UiTheme.Text, TextAnchor.MiddleCenter);
             AnchorTop(phase.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -28f), new Vector2(420f, 48f));
@@ -563,8 +599,52 @@ namespace IceFishing.View
                 hud = root.gameObject.AddComponent<FishingHudView>();
             }
 
-            hud.Configure(phase, depth, protection, capacity, pause, layout);
+            hud.Configure(phase, statPills.ToArray(), statsProfile, pause, layout);
             return hud;
+        }
+
+        static void ParsePreviewFraction(string preview, out float current, out float max)
+        {
+            current = 0f;
+            max = 0f;
+            if (string.IsNullOrEmpty(preview))
+            {
+                return;
+            }
+
+            var slash = preview.IndexOf('/');
+            if (slash <= 0 || slash >= preview.Length - 1)
+            {
+                return;
+            }
+
+            float.TryParse(preview.Substring(0, slash), out current);
+            float.TryParse(preview.Substring(slash + 1), out max);
+        }
+
+        static FishingHudStatDefinition BuildFallbackStat(
+            FishingHudStatKind kind,
+            Sprite icon,
+            string preview,
+            float topOffsetY)
+        {
+            var definition = ScriptableObject.CreateInstance<FishingHudStatDefinition>();
+            definition.Kind = kind;
+            definition.Icon = icon;
+            ParsePreviewFraction(preview, out var previewCurrent, out var previewMax);
+            definition.PreviewCurrent = previewCurrent;
+            definition.MaxValue = previewMax;
+            definition.TopOffsetY = topOffsetY;
+            return definition;
+        }
+
+        public static FishingHudStatsDefinition ResolveHudStatsProfile()
+        {
+#if UNITY_EDITOR
+            return AssetDatabase.LoadAssetAtPath<FishingHudStatsDefinition>(FishingHudStatsDefinition.DefaultAssetPath);
+#else
+            return null;
+#endif
         }
 
         static PausePopupView BuildPause(Transform canvas)
@@ -677,13 +757,22 @@ namespace IceFishing.View
             return button;
         }
 
-        static Text CreateStatPill(Transform parent, string name, Sprite pill, Sprite icon, string value, float y)
+        static HudStatPillView CreateStatPill(Transform parent, FishingHudStatDefinition definition, Sprite sharedPill)
         {
-            var bar = CreatePanel(parent, name, pill != null ? Color.white : UiTheme.Panel);
+            var pillSprite = definition != null && definition.PillOverride != null
+                ? definition.PillOverride
+                : sharedPill;
+            var name = definition != null ? definition.Kind.ToString() : "Stat";
+            var preview = definition != null ? definition.GetPreviewText() : "0/0";
+            var topOffsetY = definition != null ? definition.TopOffsetY : -24f;
+            var icon = definition != null ? definition.Icon : null;
+
+            var pillTint = FishingHudStatsDefinition.DefaultPillTint;
+            var bar = CreatePanel(parent, name, pillSprite != null ? pillTint : UiTheme.Panel);
             bar.raycastTarget = false;
-            if (pill != null)
+            if (pillSprite != null)
             {
-                bar.sprite = pill;
+                bar.sprite = pillSprite;
                 bar.type = Image.Type.Sliced;
                 bar.fillCenter = true;
             }
@@ -692,7 +781,7 @@ namespace IceFishing.View
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(24f, y);
+            rt.anchoredPosition = new Vector2(24f, topOffsetY);
             rt.sizeDelta = new Vector2(268f, 64f);
 
             var iconImage = CreatePanel(bar.transform, "Icon", Color.white);
@@ -715,13 +804,21 @@ namespace IceFishing.View
             iconRt.anchoredPosition = new Vector2(34f, 0f);
             iconRt.sizeDelta = new Vector2(52f, 52f);
 
-            var text = CreateText(bar.transform, "Value", value, 32, Color.white, TextAnchor.MiddleLeft);
+            var text = CreateText(bar.transform, "Value", preview, 32, Color.white, TextAnchor.MiddleLeft);
             var textRt = text.rectTransform;
-            textRt.anchorMin = new Vector2(0f, 0f);
-            textRt.anchorMax = new Vector2(1f, 1f);
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.pivot = new Vector2(0.5f, 0.5f);
+            textRt.anchoredPosition = Vector2.zero;
             textRt.offsetMin = new Vector2(70f, 0f);
             textRt.offsetMax = new Vector2(-18f, 0f);
-            return text;
+
+            var pillView = bar.gameObject.AddComponent<HudStatPillView>();
+            var profile = ResolveHudStatsProfile();
+            var tint = profile != null ? profile.PillTint : FishingHudStatsDefinition.DefaultPillTint;
+            pillView.Configure(definition, text, iconImage, bar);
+            pillView.ApplyPresentation(pillSprite, tint);
+            return pillView;
         }
 
         static void PlaceBottomRow(RectTransform rt, float x, float heightFromBottom, float height)

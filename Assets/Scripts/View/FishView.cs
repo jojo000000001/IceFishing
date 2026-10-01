@@ -298,7 +298,11 @@ namespace IceFishing.View
 
         public void SetWorldHeight(float worldHeight)
         {
-            if (worldHeight >= 0.9f)
+            if (worldHeight > 0.05f && worldHeight < 0.6f)
+            {
+                worldHeight *= 1.35f;
+            }
+            else if (worldHeight >= 0.9f)
             {
                 worldHeight *= 1.35f;
             }

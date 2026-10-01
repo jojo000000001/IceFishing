@@ -32,6 +32,7 @@ namespace IceFishing.Controller
         float _fishingHookEase = -1f;
         float _lineDrop;
         bool _campLineOff;
+        ScreenFlashView _screenFlash;
 
         public void EditorAssign(
             HubView hubView,
@@ -63,6 +64,7 @@ namespace IceFishing.Controller
             ServiceLocator.Register(_profile);
 
             ApplyFonts();
+            EnsureScreenFlash();
             _hubController = new HubController(_hubView, _overlayView, _profile, StartFishing, RefreshHub);
             _fishingController = new FishingController(_hudView, _pauseView, ReturnToHub);
             ShowHub();
@@ -124,9 +126,15 @@ namespace IceFishing.Controller
             {
                 if (_introT >= 1f && !paused && _worldView.TryHookHeadHit(session, out var hit))
                 {
+                    var protectionBefore = session.ProtectionLeft;
                     if (_fishingController.TryHandleHeadHit(hit, out var catchSlot))
                     {
                         _worldView.AttachCaughtFish(hit, catchSlot);
+                    }
+
+                    if (protectionBefore > session.ProtectionLeft)
+                    {
+                        PlayProtectionScreenFlash();
                     }
                 }
 
@@ -405,6 +413,31 @@ namespace IceFishing.Controller
             for (var i = 0; i < texts.Length; i++)
             {
                 texts[i].font = font;
+            }
+        }
+
+        void EnsureScreenFlash()
+        {
+            if (_screenFlash != null || _hubView == null)
+            {
+                return;
+            }
+
+            var canvas = _hubView.GetComponentInParent<Canvas>();
+            if (canvas == null)
+            {
+                return;
+            }
+
+            _screenFlash = ScreenFlashView.Ensure(canvas.transform);
+        }
+
+        void PlayProtectionScreenFlash()
+        {
+            EnsureScreenFlash();
+            if (_screenFlash != null)
+            {
+                _screenFlash.PlayLightningFlash();
             }
         }
     }
