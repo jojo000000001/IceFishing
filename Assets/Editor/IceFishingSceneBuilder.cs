@@ -19,6 +19,7 @@ namespace IceFishing.EditorTools
         public const string HudPrefabPath = "Assets/Prefabs/UI/FishingHudView.prefab";
         public const string HubPrefabPath = "Assets/Prefabs/UI/HubView.prefab";
         public const string SettlePrefabPath = "Assets/Prefabs/UI/SettleView.prefab";
+        public const string TutorialPrefabPath = "Assets/Prefabs/UI/CastTutorialView.prefab";
         public const string UnderwaterPrefabPath = "Assets/Prefabs/World/UnderwaterField.prefab";
         public const string CampPrefabPath = "Assets/Prefabs/World/CampField.prefab";
         public const string HudArtFolder = "Assets/Art/UI";
@@ -41,6 +42,12 @@ namespace IceFishing.EditorTools
         {
             BakeSettlePrefab();
             ReplaceSettleInOpenScene();
+        }
+
+        [MenuItem("IceFishing/Rebuild Tutorial Card Prefab")]
+        public static void RebuildTutorialPrefabFromMenu()
+        {
+            BakeTutorialPrefab();
         }
 
         [MenuItem("IceFishing/Rebuild Camp Prefab")]
@@ -133,10 +140,11 @@ namespace IceFishing.EditorTools
             var hub = PlaceHubPrefab(canvasObject.transform);
             var hud = PlaceHudPrefab(canvasObject.transform);
             var ui = UiFactory.Build(canvasObject.transform, hub, hud);
+            var tutorial = PlaceCastTutorialPrefab(canvasObject.transform);
 
             var bootstrap = new GameObject("Bootstrap");
             var app = bootstrap.AddComponent<AppController>();
-            app.EditorAssign(ui.Hub, ui.Hud, ui.Pause, ui.Overlay, ui.Settle, world, worldPrefab);
+            app.EditorAssign(ui.Hub, ui.Hud, ui.Pause, ui.Overlay, ui.Settle, world, worldPrefab, tutorial);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -148,6 +156,30 @@ namespace IceFishing.EditorTools
 
             AssetDatabase.SaveAssets();
             return ScenePath;
+        }
+
+        static CastTutorialView PlaceCastTutorialPrefab(Transform canvas)
+        {
+            var existing = canvas.Find(CastTutorialView.NodeName);
+            if (existing != null)
+            {
+                return existing.GetComponent<CastTutorialView>();
+            }
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TutorialPrefabPath);
+            if (prefab == null)
+            {
+                prefab = BakeTutorialPrefab();
+            }
+
+            if (prefab == null)
+            {
+                return UiFactory.BuildCastTutorial(canvas);
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, canvas);
+            instance.SetActive(false);
+            return instance.GetComponent<CastTutorialView>();
         }
 
         static HubView PlaceHubPrefab(Transform canvas)
@@ -363,6 +395,40 @@ namespace IceFishing.EditorTools
             {
                 UnityEngine.Object.DestroyImmediate(bakeRoot);
             }
+        }
+
+        public static GameObject BakeTutorialPrefab()
+        {
+            EnsureFolder("Assets/Prefabs");
+            EnsureFolder("Assets/Prefabs/UI");
+            ImportTutorialSprites();
+
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(TutorialPrefabPath);
+            if (existing != null)
+            {
+                AssetDatabase.DeleteAsset(TutorialPrefabPath);
+            }
+
+            var bakeRoot = new GameObject("TutorialPrefabBake", typeof(RectTransform));
+            try
+            {
+                var tutorial = UiFactory.BuildCastTutorial(bakeRoot.transform);
+                var saved = PrefabUtility.SaveAsPrefabAsset(tutorial.gameObject, TutorialPrefabPath);
+                Debug.Log("Baked CastTutorialView prefab at " + TutorialPrefabPath);
+                return saved;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(bakeRoot);
+            }
+        }
+
+        static void ImportTutorialSprites()
+        {
+            ImportUiSprite(HudArtFolder + "/TutorialFrame.png", new Vector4(80f, 80f, 80f, 80f));
+            ImportUiSprite(HudArtFolder + "/TutorialHeader.png", Vector4.zero);
+            ImportUiSprite(HudArtFolder + "/TutorialClose.png", Vector4.zero);
+            ImportUiSprite(HudArtFolder + "/TutorialBubbles.png", Vector4.zero);
         }
 
         static void ReplaceSettleInOpenScene()

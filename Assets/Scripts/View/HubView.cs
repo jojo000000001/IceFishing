@@ -401,6 +401,8 @@ namespace IceFishing.View
             }
 
             UiFactory.EnsureHubCurrencyBar(_layout);
+            var bar = _layout.Find("CurrencyBar") as RectTransform;
+            UiFactory.ApplyHubCurrencyBarLayout(bar);
             BindCurrencyRefs();
             if (_tokenText != null && _fishCoinCountText != null)
             {
@@ -487,7 +489,7 @@ namespace IceFishing.View
             ApplyFont();
             if (_baitText != null)
             {
-                _baitText.text = "饵料 " + profile.DisplayBait + " / " + PlayerProfile.MaxBait;
+                _baitText.gameObject.SetActive(false);
             }
 
             if (_fishCoinCountText != null)
@@ -506,14 +508,7 @@ namespace IceFishing.View
 
             if (_regenText != null)
             {
-                if (profile.DisplayBait >= PlayerProfile.MaxBait)
-                {
-                    _regenText.text = "饵料已满";
-                }
-                else
-                {
-                    _regenText.text = "下次回复 " + Mathf.CeilToInt(secondsToNext) + " 秒";
-                }
+                _regenText.gameObject.SetActive(false);
             }
         }
 

@@ -19,6 +19,8 @@ namespace IceFishing.Model
         public int StabilizerCount;
         public int LanternCount;
         public int ScannerCount;
+        /// <summary>首次点「开始钓鱼」时的抛竿前教程；关闭后不再弹出。</summary>
+        public bool HasSeenCastTutorial;
 
         public static PlayerProfile CreateNew()
         {
@@ -27,6 +29,7 @@ namespace IceFishing.Model
                 Bait = 8,
                 Tokens = 0,
                 Shells = 0,
+                HasSeenCastTutorial = false,
                 LineLevel = 1,
                 HookLevel = 1,
                 SinkerLevel = 1,

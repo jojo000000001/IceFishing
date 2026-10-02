@@ -16,6 +16,10 @@ namespace IceFishing.Model
         public const float LaneScreenFraction = 0.72f;
         public const float HookScreenY = 0.55f;
         public const float IntroDepthMeters = 10f;
+        /// <summary>首次教程开场切入深度（米），跳过营地镜头下沉。正常对局仍走入场下潜。</summary>
+        public const float TutorialStartDepthMeters = 95f;
+        /// <summary>首次教程挂鱼后上浮距离（米）；镜头跟钩深，卡片同步上移。</summary>
+        public const float TutorialAscendMeters = 10f;
         public const float FishSpawnMinDepthMeters = 10f;
         public const float IntroDuration = 1.4f;
         public const int FishMaxAlive = 12;

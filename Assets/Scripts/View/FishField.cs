@@ -34,6 +34,7 @@ namespace IceFishing.View
         const float VerticalSeparationExtra = 0.35f;
         const int SpawnPlacementTries = 14;
         float _laneHeightScale = 1.65f;
+        bool _spawnFrozen;
 
         public void Configure(FishCatalog catalog)
         {
@@ -141,6 +142,11 @@ namespace IceFishing.View
             EnforceBandDirections();
             SeparateAlive(dt);
             RecycleOffscreen(session);
+            if (_spawnFrozen)
+            {
+                return;
+            }
+
             if (!_seeded)
             {
                 var ahead = FillDensity(session, 2, false);
@@ -165,6 +171,109 @@ namespace IceFishing.View
             SpawnTick(dt, session);
             TryFillMidDepthGap(session);
             TryFillDenseBand(session);
+        }
+
+        public void SetSpawnFrozen(bool frozen)
+        {
+            _spawnFrozen = frozen;
+        }
+
+        /// <summary>引导：在指定位置刷一条 80～100 米带的静止目标鱼。</summary>
+        public FishView SpawnTutorialBait(CastSession session, float x, float y)
+        {
+            if (_catalog == null || _catalog.Items == null || _catalog.Items.Length == 0 || session == null)
+            {
+                return null;
+            }
+
+            var def = PickTutorialBait(session.Depth) ?? Pick(session.Depth) ?? PickAny();
+            if (def == null || def.Prefab == null)
+            {
+                return null;
+            }
+
+            var view = Rent(def);
+            view.Bind(def, 1);
+            view.SetSwim(0, 0f);
+            view.gameObject.SetActive(true);
+            view.transform.position = new Vector3(x, y, 0f);
+            _alive.Add(view);
+            return view;
+        }
+
+        FishDefinition PickTutorialBait(float depth)
+        {
+            _scratch.Clear();
+            var items = _catalog.Items;
+            for (var i = 0; i < items.Length; i++)
+            {
+                var def = items[i];
+                if (def == null || def.Prefab == null)
+                {
+                    continue;
+                }
+
+                if (def.MaxDepthMeters < 80f || def.MinDepthMeters > 100f)
+                {
+                    continue;
+                }
+
+                if (depth < def.MinDepthMeters || depth > def.MaxDepthMeters)
+                {
+                    continue;
+                }
+
+                _scratch.Add(def);
+            }
+
+            if (_scratch.Count == 0)
+            {
+                return null;
+            }
+
+            FishDefinition best = _scratch[0];
+            for (var i = 1; i < _scratch.Count; i++)
+            {
+                if (_scratch[i].WorldHeight < best.WorldHeight)
+                {
+                    best = _scratch[i];
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>引导：在钩子附近刷一条静止鱼，便于脚本挂鱼/捕获。</summary>
+        public FishView SpawnTutorialAtHook(CastSession session, float hookX, float hookY)
+        {
+            if (_catalog == null || _catalog.Items == null || _catalog.Items.Length == 0 || session == null)
+            {
+                return null;
+            }
+
+            var depth = session.Depth;
+            var def = Pick(depth) ?? PickAny();
+            if (def == null || def.Prefab == null)
+            {
+                return null;
+            }
+
+            var view = Rent(def);
+            view.Bind(def, 1);
+            view.SetSwim(0, 0f);
+            view.gameObject.SetActive(true);
+            var pos = new Vector3(hookX, hookY, 0f);
+            view.transform.position = pos;
+            if (view.Head != null)
+            {
+                var head = view.Head.bounds.center;
+                pos.x += hookX - head.x;
+                pos.y += hookY - head.y;
+                view.transform.position = pos;
+            }
+
+            _alive.Add(view);
+            return view;
         }
 
         public bool TryGetHeadHit(Vector2 hookPos, float radius, out FishView fish)
@@ -748,6 +857,26 @@ namespace IceFishing.View
             }
 
             return _scratch[_scratch.Count - 1];
+        }
+
+        FishDefinition PickAny()
+        {
+            var items = _catalog != null ? _catalog.Items : null;
+            if (items == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < items.Length; i++)
+            {
+                var def = items[i];
+                if (def != null && def.Prefab != null && def.SpawnWeight > 0)
+                {
+                    return def;
+                }
+            }
+
+            return null;
         }
 
         FishView Rent(FishDefinition def)

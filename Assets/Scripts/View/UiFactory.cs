@@ -473,48 +473,130 @@ namespace IceFishing.View
             var barGo = new GameObject("CurrencyBar", typeof(RectTransform));
             var bar = barGo.GetComponent<RectTransform>();
             bar.SetParent(layout, false);
+            CreateHubCurrencyRow(bar, "FishCoinRow", CampUiSprites.FishCoin, "0");
+            CreateHubCurrencyRow(bar, "ShellRow", CampUiSprites.Shell, "0");
+            ApplyHubCurrencyBarLayout(bar);
+        }
+
+        public static void ApplyHubCurrencyBarLayout(RectTransform bar)
+        {
+            if (bar == null)
+            {
+                return;
+            }
+
             bar.anchorMin = new Vector2(1f, 1f);
             bar.anchorMax = new Vector2(1f, 1f);
             bar.pivot = new Vector2(1f, 1f);
-            bar.anchoredPosition = new Vector2(-40f, -76f);
-            bar.sizeDelta = new Vector2(300f, 112f);
+            bar.anchoredPosition = new Vector2(-132f, -24f);
+            bar.sizeDelta = new Vector2(452f, 64f);
+            bar.localScale = Vector3.one;
 
-            CreateHubCurrencyRow(bar, "FishCoinRow", CampUiSprites.FishCoin, 0f, "0");
-            CreateHubCurrencyRow(bar, "ShellRow", CampUiSprites.Shell, -52f, "0");
+            var coin = bar.Find("FishCoinRow") as RectTransform;
+            var shell = bar.Find("ShellRow") as RectTransform;
+            LayoutHubCurrencyChip(coin, new Vector2(-228f, 0f));
+            LayoutHubCurrencyChip(shell, Vector2.zero);
         }
 
-        static void CreateHubCurrencyRow(RectTransform bar, string rowName, Sprite icon, float y, string preview)
+        static void LayoutHubCurrencyChip(RectTransform row, Vector2 anchoredPosition)
         {
-            var rowGo = new GameObject(rowName, typeof(RectTransform));
-            var row = rowGo.GetComponent<RectTransform>();
-            row.SetParent(bar, false);
-            row.anchorMin = new Vector2(1f, 1f);
-            row.anchorMax = new Vector2(1f, 1f);
-            row.pivot = new Vector2(1f, 1f);
-            row.anchoredPosition = new Vector2(0f, y);
-            row.sizeDelta = new Vector2(280f, 48f);
+            if (row == null)
+            {
+                return;
+            }
+
+            row.anchorMin = new Vector2(1f, 0.5f);
+            row.anchorMax = new Vector2(1f, 0.5f);
+            row.pivot = new Vector2(1f, 0.5f);
+            row.anchoredPosition = anchoredPosition;
+            row.sizeDelta = new Vector2(216f, 64f);
+            row.localScale = Vector3.one;
+
+            var image = row.GetComponent<Image>();
+            if (image != null)
+            {
+                image.raycastTarget = false;
+                image.color = FishingHudStatsDefinition.DefaultPillTint;
+                if (image.sprite == null)
+                {
+                    image.sprite = ResolveHudPillSprite();
+                }
+
+                if (image.sprite != null)
+                {
+                    image.type = Image.Type.Sliced;
+                    image.fillCenter = true;
+                }
+            }
+
+            var icon = row.Find("Icon") as RectTransform;
+            if (icon != null)
+            {
+                icon.anchorMin = new Vector2(0f, 0.5f);
+                icon.anchorMax = new Vector2(0f, 0.5f);
+                icon.pivot = new Vector2(0.5f, 0.5f);
+                icon.anchoredPosition = new Vector2(34f, 0f);
+                icon.sizeDelta = new Vector2(48f, 48f);
+                icon.localScale = Vector3.one;
+            }
+
+            var count = row.Find("Count") as RectTransform;
+            if (count != null)
+            {
+                count.anchorMin = Vector2.zero;
+                count.anchorMax = Vector2.one;
+                count.pivot = new Vector2(0.5f, 0.5f);
+                count.anchoredPosition = Vector2.zero;
+                count.offsetMin = new Vector2(66f, 0f);
+                count.offsetMax = new Vector2(-16f, 0f);
+                count.localScale = Vector3.one;
+                var text = count.GetComponent<Text>();
+                if (text != null)
+                {
+                    text.alignment = TextAnchor.MiddleLeft;
+                    text.fontSize = 32;
+                    text.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    text.verticalOverflow = VerticalWrapMode.Overflow;
+                }
+            }
+        }
+
+        static Sprite ResolveHudPillSprite()
+        {
+            return Resources.Load<Sprite>("UI/HudPill")
+#if UNITY_EDITOR
+                ?? AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/UI/HudPill.png")
+#endif
+                ;
+        }
+
+        static void CreateHubCurrencyRow(RectTransform bar, string rowName, Sprite icon, string preview)
+        {
+            var row = CreatePanel(bar, rowName, FishingHudStatsDefinition.DefaultPillTint);
+            row.raycastTarget = false;
+            var pill = ResolveHudPillSprite();
+            if (pill != null)
+            {
+                row.sprite = pill;
+                row.type = Image.Type.Sliced;
+                row.fillCenter = true;
+            }
 
             var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            iconGo.transform.SetParent(row, false);
+            iconGo.transform.SetParent(row.transform, false);
             var image = iconGo.GetComponent<Image>();
             image.raycastTarget = false;
             image.preserveAspect = true;
             image.sprite = icon;
             image.color = Color.white;
-            var iconRt = image.rectTransform;
-            iconRt.anchorMin = new Vector2(1f, 0.5f);
-            iconRt.anchorMax = new Vector2(1f, 0.5f);
-            iconRt.pivot = new Vector2(1f, 0.5f);
-            iconRt.anchoredPosition = new Vector2(0f, 0f);
-            iconRt.sizeDelta = new Vector2(46f, 46f);
 
-            var count = CreateText(row, "Count", preview, 34, UiTheme.Text, TextAnchor.MiddleRight);
-            var countRt = count.rectTransform;
-            countRt.anchorMin = new Vector2(0f, 0f);
-            countRt.anchorMax = new Vector2(1f, 1f);
-            countRt.offsetMin = Vector2.zero;
-            countRt.offsetMax = new Vector2(-54f, 0f);
-            var outline = count.gameObject.AddComponent<Outline>();
+            var count = CreateText(row.transform, "Count", preview, 32, Color.white, TextAnchor.MiddleLeft);
+            var outline = count.gameObject.GetComponent<Outline>();
+            if (outline == null)
+            {
+                outline = count.gameObject.AddComponent<Outline>();
+            }
+
             outline.effectColor = new Color(0f, 0f, 0f, 0.55f);
             outline.effectDistance = new Vector2(1.5f, -1.5f);
         }
@@ -667,6 +749,7 @@ namespace IceFishing.View
             bait.rectTransform.anchorMax = new Vector2(0.5f, 1f);
             bait.rectTransform.offsetMin = new Vector2(36f, 0f);
             bait.rectTransform.offsetMax = new Vector2(-12f, 0f);
+            bait.gameObject.SetActive(false);
 
             var tokens = CreateText(stats.transform, "Tokens", "纪念币 0", 34, UiTheme.Text, TextAnchor.MiddleRight);
             tokens.rectTransform.anchorMin = new Vector2(0.5f, 0f);
@@ -679,6 +762,7 @@ namespace IceFishing.View
 
             var regen = CreateText(layout, "Regen", "下次回复 15 秒", 28, UiTheme.TextMuted, TextAnchor.MiddleCenter);
             AnchorTop(regen.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -340f), new Vector2(920f, 40f));
+            regen.gameObject.SetActive(false);
 
             var start = CreateButton(layout, "StartButton", "开始钓鱼", UiTheme.StartButton, new Vector2(720f, 128f));
             AnchorBottom(start.transform as RectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 280f), new Vector2(720f, 128f));
@@ -924,6 +1008,120 @@ namespace IceFishing.View
             var dimmer = CreatePanel(canvas, SettleView.NodeName, new Color(0.04f, 0.09f, 0.15f, 0.52f));
             Stretch(dimmer.rectTransform);
             return PopulateSettle(dimmer.transform);
+        }
+
+        public static CastTutorialView BuildCastTutorial(Transform canvas)
+        {
+            var root = CreatePanel(canvas, CastTutorialView.NodeName, Color.clear);
+            Stretch(root.rectTransform);
+            root.raycastTarget = true;
+            return PopulateCastTutorial(root.transform);
+        }
+
+        public static CastTutorialView PopulateCastTutorial(Transform root)
+        {
+            var card = CreatePanel(root, "Card", Color.clear);
+            card.raycastTarget = false;
+            var cardRt = card.rectTransform;
+            cardRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cardRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRt.pivot = new Vector2(0.5f, 0.5f);
+            cardRt.anchoredPosition = new Vector2(0f, -36f);
+            cardRt.sizeDelta = new Vector2(920f, 1320f);
+
+            var window = CreatePanel(card.transform, "Window", Color.clear);
+            window.raycastTarget = false;
+            Stretch(window.rectTransform);
+            window.rectTransform.offsetMin = new Vector2(36f, 36f);
+            window.rectTransform.offsetMax = new Vector2(-36f, -36f);
+            window.gameObject.AddComponent<RectMask2D>();
+
+            var header = CreatePanel(card.transform, "Header", Color.white);
+            header.raycastTarget = false;
+            if (TutorialUiSprites.Header != null)
+            {
+                header.sprite = TutorialUiSprites.Header;
+                header.type = Image.Type.Simple;
+                header.preserveAspect = true;
+            }
+
+            var headerRt = header.rectTransform;
+            headerRt.anchorMin = new Vector2(0.5f, 1f);
+            headerRt.anchorMax = new Vector2(0.5f, 1f);
+            headerRt.pivot = new Vector2(0.5f, 0.12f);
+            headerRt.anchoredPosition = new Vector2(0f, 18f);
+            headerRt.sizeDelta = new Vector2(980f, 280f);
+
+            var frame = CreatePanel(card.transform, "Frame", Color.white);
+            frame.raycastTarget = false;
+            if (TutorialUiSprites.Frame != null)
+            {
+                frame.sprite = TutorialUiSprites.Frame;
+                frame.type = Image.Type.Sliced;
+                frame.fillCenter = false;
+            }
+
+            Stretch(frame.rectTransform);
+
+            var bubblesL = CreatePanel(card.transform, "BubblesLeft", Color.white);
+            bubblesL.raycastTarget = false;
+            bubblesL.preserveAspect = true;
+            if (TutorialUiSprites.Bubbles != null)
+            {
+                bubblesL.sprite = TutorialUiSprites.Bubbles;
+            }
+
+            var bubblesLRt = bubblesL.rectTransform;
+            bubblesLRt.anchorMin = bubblesLRt.anchorMax = new Vector2(0f, 1f);
+            bubblesLRt.pivot = new Vector2(0.5f, 0.5f);
+            bubblesLRt.anchoredPosition = new Vector2(88f, -70f);
+            bubblesLRt.sizeDelta = new Vector2(120f, 165f);
+
+            var bubblesR = CreatePanel(card.transform, "BubblesRight", Color.white);
+            bubblesR.raycastTarget = false;
+            bubblesR.preserveAspect = true;
+            if (TutorialUiSprites.Bubbles != null)
+            {
+                bubblesR.sprite = TutorialUiSprites.Bubbles;
+            }
+
+            var bubblesRRt = bubblesR.rectTransform;
+            bubblesRRt.anchorMin = bubblesRRt.anchorMax = new Vector2(1f, 1f);
+            bubblesRRt.pivot = new Vector2(0.5f, 0.5f);
+            bubblesRRt.anchoredPosition = new Vector2(-70f, -96f);
+            bubblesRRt.sizeDelta = new Vector2(110f, 150f);
+
+            var close = CreateIconButton(card.transform, "CloseButton", TutorialUiSprites.Close, new Vector2(88f, 88f));
+            var closeRt = close.transform as RectTransform;
+            closeRt.anchorMin = closeRt.anchorMax = new Vector2(1f, 1f);
+            closeRt.pivot = new Vector2(0.5f, 0.5f);
+            closeRt.anchoredPosition = new Vector2(18f, 28f);
+
+            var caption = CreateText(
+                card.transform,
+                "Caption",
+                "鱼钩下潜时长按屏幕可左右移动，下潜至极致前不要碰到鱼。",
+                34,
+                Color.white,
+                TextAnchor.MiddleCenter);
+            caption.horizontalOverflow = HorizontalWrapMode.Wrap;
+            caption.verticalOverflow = VerticalWrapMode.Overflow;
+            AddOutline(caption);
+            var captionRt = caption.rectTransform;
+            captionRt.anchorMin = new Vector2(0f, 0f);
+            captionRt.anchorMax = new Vector2(1f, 0f);
+            captionRt.pivot = new Vector2(0.5f, 0f);
+            captionRt.anchoredPosition = new Vector2(0f, 56f);
+            captionRt.sizeDelta = new Vector2(-96f, 160f);
+
+            var tutorial = root.GetComponent<CastTutorialView>();
+            if (tutorial == null)
+            {
+                tutorial = root.gameObject.AddComponent<CastTutorialView>();
+            }
+
+            tutorial.Configure(cardRt, caption, close);
+            return tutorial;
         }
 
         public static SettleView PopulateSettle(Transform root)

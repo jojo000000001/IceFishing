@@ -1,5 +1,4 @@
 using System;
-using IceFishing.Core;
 using IceFishing.Model;
 using IceFishing.View;
 
@@ -14,6 +13,7 @@ namespace IceFishing.Controller
         readonly OverlayView _overlay;
         readonly PlayerProfile _profile;
         readonly Action _startFishing;
+        readonly Action _beginCastTutorial;
         readonly Action _profileChanged;
 
         public HubController(
@@ -21,12 +21,14 @@ namespace IceFishing.Controller
             OverlayView overlay,
             PlayerProfile profile,
             Action startFishing,
-            Action profileChanged)
+            Action profileChanged,
+            Action beginCastTutorial = null)
         {
             _view = view;
             _overlay = overlay;
             _profile = profile;
             _startFishing = startFishing;
+            _beginCastTutorial = beginCastTutorial;
             _profileChanged = profileChanged;
 
             _view.StartClicked += OnStart;
@@ -37,12 +39,19 @@ namespace IceFishing.Controller
 
         void OnStart()
         {
-            if (_profile.DisplayBait <= 0)
+            // M1：暂不消耗/校验饵料。
+            if (!_profile.HasSeenCastTutorial && _beginCastTutorial != null)
             {
-                _overlay.Show("饵料不足", "营地每 15 秒回复 1 条饵料。可在设置里打开无限饵料以便验收。");
+                _view.SetInteractable(false);
+                _beginCastTutorial();
                 return;
             }
 
+            BeginCastThenFish();
+        }
+
+        void BeginCastThenFish()
+        {
             _view.PlayCast(() => _startFishing?.Invoke());
         }
 
@@ -68,19 +77,8 @@ namespace IceFishing.Controller
         {
             _overlay.Show(
                 "设置",
-                "操作：触屏拖拽或鼠标（后续里程碑接入鱼钩转向）。\n饵料：营地每 15 秒回复 1 条，上限 10。",
-                true,
-                DebugFlags.InfiniteBait,
-                isOn =>
-                {
-                    DebugFlags.InfiniteBait = isOn;
-                    if (isOn)
-                    {
-                        _profile.Bait = PlayerProfile.MaxBait;
-                    }
-
-                    _profileChanged?.Invoke();
-                });
+                "操作：触屏拖拽或鼠标控制鱼钩左右移动。",
+                false);
         }
     }
 }

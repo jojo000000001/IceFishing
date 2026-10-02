@@ -58,6 +58,8 @@ namespace IceFishing.View
         bool _hideWorldLine = true;
         bool _joining;
         bool _rodLineActive;
+        bool _tutorialCameraLocked;
+        float _tutorialCameraDepth;
         float _joinT;
         Vector3 _joinFrom;
         float _joinX;
@@ -655,6 +657,149 @@ namespace IceFishing.View
             return _fishField.TryGetHeadHit(GetHookBodyCenterWorld(), FishingRules.HookHitRadius, out fish);
         }
 
+        public void LockTutorialCamera(float depthMeters)
+        {
+            _tutorialCameraLocked = true;
+            _tutorialCameraDepth = Mathf.Max(0f, depthMeters);
+        }
+
+        public void UnlockTutorialCamera()
+        {
+            _tutorialCameraLocked = false;
+        }
+
+        public void SyncTutorialCameraDepth(float depthMeters)
+        {
+            _tutorialCameraLocked = true;
+            _tutorialCameraDepth = Mathf.Max(0f, depthMeters);
+        }
+
+        public float TutorialLockedCameraDepth
+        {
+            get { return _tutorialCameraDepth; }
+        }
+
+        public float GetHookScreenY()
+        {
+            return GetHookScreenPosition().y;
+        }
+
+        public Vector2 GetHookScreenPosition()
+        {
+            if (_hook == null || _worldCamera == null)
+            {
+                return Vector2.zero;
+            }
+
+            var p = _worldCamera.WorldToScreenPoint(_hook.position);
+            return new Vector2(p.x, p.y);
+        }
+
+        public void SetTutorialSpawnFrozen(bool frozen)
+        {
+            EnsureFishField();
+            if (_fishField != null)
+            {
+                _fishField.SetSpawnFrozen(frozen);
+            }
+        }
+
+        public float ResolveTutorialDescendDepth(CastTutorialView view, CastSession session)
+        {
+            var fallback = session != null ? session.Depth + 10f : FishingRules.TutorialStartDepthMeters + 10f;
+            if (view == null || !view.TryGetCatchHookScreen(out var hookScreen))
+            {
+                return ClampDepthInsideTutorialFrame(view, session, fallback, 0.55f);
+            }
+
+            var world = ScreenToWorld(hookScreen);
+            var depth = DepthFromHookWorldY(world.y);
+            if (session != null)
+            {
+                depth = Mathf.Clamp(depth, session.Depth + 2f, session.MaxDepth);
+            }
+
+            return ClampDepthInsideTutorialFrame(view, session, depth, 0.55f);
+        }
+
+        public float ClampDepthInsideTutorialFrame(
+            CastTutorialView view,
+            CastSession session,
+            float depth,
+            float extraBottomWorld = 0.55f)
+        {
+            if (view == null || _worldCamera == null || session == null)
+            {
+                return depth;
+            }
+
+            if (!view.TryGetHookScreenYRange(out var minScreenY, out var maxScreenY))
+            {
+                return depth;
+            }
+
+            var minWorld = ScreenToWorld(new Vector2(Screen.width * 0.5f, minScreenY));
+            var maxWorld = ScreenToWorld(new Vector2(Screen.width * 0.5f, maxScreenY));
+            var hookFloorY = minWorld.y + extraBottomWorld;
+            var hookCeilY = maxWorld.y - 0.35f;
+            var maxDepth = DepthFromHookWorldY(hookFloorY);
+            var minDepth = DepthFromHookWorldY(hookCeilY);
+            var lo = Mathf.Min(minDepth, maxDepth);
+            var hi = Mathf.Max(minDepth, maxDepth);
+            return Mathf.Clamp(depth, Mathf.Max(0f, lo), Mathf.Min(session.MaxDepth, hi));
+        }
+
+        public bool TryTutorialHeadHit(CastSession session, out FishView fish)
+        {
+            fish = null;
+            if (_fishField == null || _hook == null || session == null)
+            {
+                return false;
+            }
+
+            return _fishField.TryGetHeadHit(GetHookBodyCenterWorld(), FishingRules.HookHitRadius * 1.7f, out fish);
+        }
+
+        Vector3 ScreenToWorld(Vector2 screen)
+        {
+            var distance = Mathf.Abs(_worldCamera.transform.position.z + HookWorldZ);
+            var world = _worldCamera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, distance));
+            world.z = 0f;
+            return world;
+        }
+
+        float DepthFromHookWorldY(float hookY)
+        {
+            return Mathf.Max(0f, (_worldCamera.orthographicSize * FishingRules.HookScreenY - hookY) / UnitsPerMeter);
+        }
+
+        public float DepthForHookWorldY(float hookWorldY)
+        {
+            return DepthFromHookWorldY(hookWorldY);
+        }
+
+        public Vector3 ScreenPointToHookWorld(Vector2 screen)
+        {
+            return ScreenToWorld(screen);
+        }
+
+        public FishView SpawnTutorialFishAtHook(CastSession session)
+        {
+            if (_hook == null || session == null)
+            {
+                return null;
+            }
+
+            EnsureFishField();
+            if (_fishField == null)
+            {
+                return null;
+            }
+
+            var below = _hook.position.y - Mathf.Max(0.35f, 0.55f);
+            return _fishField.SpawnTutorialAtHook(session, session.HookX, below);
+        }
+
         public void AttachCaughtFish(FishView fish, int slotIndex)
         {
             if (fish == null || _hook == null)
@@ -762,6 +907,11 @@ namespace IceFishing.View
             get { return Mathf.Max(0.05f, worldUnitsPerMeter); }
         }
 
+        public float WorldCameraOrthographicSize
+        {
+            get { return _worldCamera != null ? _worldCamera.orthographicSize : CampField.WorldOrtho; }
+        }
+
         public float DescentMetersPerSecond
         {
             get { return Mathf.Max(0.1f, descentMetersPerSecond); }
@@ -799,6 +949,11 @@ namespace IceFishing.View
 
         float CameraFollowDepthMeters(CastSession session)
         {
+            if (_tutorialCameraLocked)
+            {
+                return _tutorialCameraDepth;
+            }
+
             if (session == null)
             {
                 return 0f;

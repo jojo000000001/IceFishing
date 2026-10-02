@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using IceFishing.Core;
 using IceFishing.Model;
@@ -18,6 +19,7 @@ namespace IceFishing.Controller
         [SerializeField] PausePopupView _pauseView;
         [SerializeField] OverlayView _overlayView;
         [SerializeField] SettleView _settleView;
+        [SerializeField] CastTutorialView _castTutorialView;
         [SerializeField] GameObject _worldPrefab;
         [SerializeField] WorldView _worldView;
         WorldView _spawnedWorld;
@@ -37,6 +39,8 @@ namespace IceFishing.Controller
         ScreenFlashView _screenFlash;
         CampRewardPresentationView _campReward;
         bool _playingCampReward;
+        bool _castTutorialActive;
+        Coroutine _castTutorialRoutine;
 
         public void EditorAssign(
             HubView hubView,
@@ -45,13 +49,15 @@ namespace IceFishing.Controller
             OverlayView overlayView,
             SettleView settleView,
             WorldView worldView,
-            GameObject worldPrefab = null)
+            GameObject worldPrefab = null,
+            CastTutorialView castTutorialView = null)
         {
             _hubView = hubView;
             _hudView = hudView;
             _pauseView = pauseView;
             _overlayView = overlayView;
             _settleView = settleView;
+            _castTutorialView = castTutorialView;
             _worldView = worldView;
             if (worldPrefab != null)
             {
@@ -72,7 +78,14 @@ namespace IceFishing.Controller
             ApplyFonts();
             EnsureScreenFlash();
             EnsureSettleView();
-            _hubController = new HubController(_hubView, _overlayView, _profile, StartFishing, RefreshHub);
+            EnsureCastTutorialView();
+            _hubController = new HubController(
+                _hubView,
+                _overlayView,
+                _profile,
+                StartFishing,
+                RefreshHub,
+                BeginCastTutorialFromHub);
             _fishingController = new FishingController(_hudView, _pauseView, ReturnToHub);
             WireSettle();
             ShowHub();
@@ -82,7 +95,7 @@ namespace IceFishing.Controller
         {
             if (_screen == AppScreen.Hub)
             {
-                _regen.Tick(Time.deltaTime, _profile);
+                // _regen.Tick(Time.deltaTime, _profile);
                 RefreshHub();
                 ParkHookUnderLine();
                 _worldView.SetWorldLineHidden(true);
@@ -108,9 +121,16 @@ namespace IceFishing.Controller
             }
 
             var dt = Time.deltaTime;
-            var paused = _fishingController.IsPaused;
+            var paused = _fishingController.IsPaused || _castTutorialActive;
             var session = _fishingController.Session;
             var x = targetX.HasValue ? targetX.Value : session.HookX;
+            if (_castTutorialActive)
+            {
+                _hudView.Bind(session);
+                TickFishingUiFade();
+                return;
+            }
+
             if (!paused && _introT < 1f)
             {
                 TickIntro(dt, x, minX, maxX);
@@ -201,7 +221,75 @@ namespace IceFishing.Controller
             }
         }
 
+        void BeginCastTutorialFromHub()
+        {
+            if (_castTutorialView == null)
+            {
+                _hubView.SetInteractable(true);
+                _hubView.PlayCast(StartFishing);
+                return;
+            }
+
+            if (_castTutorialRoutine != null)
+            {
+                StopCoroutine(_castTutorialRoutine);
+            }
+
+            _castTutorialActive = false;
+            _castTutorialView.ShowTimeline(FinishCastTutorial);
+            StartFishing(FishingRules.TutorialStartDepthMeters);
+            _hudView.Hide();
+            var session = _fishingController.Session;
+            _castTutorialRoutine = StartCoroutine(CastTutorialRunner.Run(
+                session,
+                _worldView,
+                _fishingController,
+                _castTutorialView,
+                () => _introT >= 1f,
+                () => { _castTutorialActive = true; },
+                FinishCastTutorial));
+        }
+
+        void FinishCastTutorial()
+        {
+            if (_castTutorialRoutine == null && _screen == AppScreen.Hub)
+            {
+                return;
+            }
+
+            if (_castTutorialRoutine != null)
+            {
+                StopCoroutine(_castTutorialRoutine);
+                _castTutorialRoutine = null;
+            }
+
+            _castTutorialActive = false;
+            if (_castTutorialView != null)
+            {
+                _castTutorialView.Hide();
+            }
+
+            _profile.HasSeenCastTutorial = true;
+            _fishingController.Exit();
+            _introT = 1f;
+            if (_worldView != null)
+            {
+                _worldView.UnlockTutorialCamera();
+                _worldView.SetTutorialSpawnFrozen(false);
+                _worldView.ClearFish();
+            }
+
+            ShowHub();
+            RefreshHub();
+            _hubView.SetInteractable(true);
+        }
+
         void StartFishing()
+        {
+            StartFishing(null);
+        }
+
+        void StartFishing(float? snapDepthMeters)
         {
             if (_screen == AppScreen.Fishing)
             {
@@ -220,11 +308,28 @@ namespace IceFishing.Controller
             var ascent = _worldView != null ? _worldView.AscentMetersPerSecond : FishingRules.AscentMetersPerSecond;
             _fishingController.Enter(_profile, protection, lineMeters, descent, ascendCatch, ascent);
             var session = _fishingController.Session;
+            if (snapDepthMeters.HasValue)
+            {
+                SnapFishingToDepth(session, snapDepthMeters.Value);
+            }
+            else
+            {
+                BeginDiveIntro(session, lineMeters);
+            }
+
+            _screen = AppScreen.Fishing;
+            _worldView.ApplyScreen(AppScreen.Fishing);
+            _worldView.ApplyCast(_fishingController.Session);
+            _worldView.BeginFish();
+            _bus.RaiseScreenChanged(_screen);
+        }
+
+        void BeginDiveIntro(CastSession session, float lineMeters)
+        {
             _introFromDepth = session != null ? session.Depth : 0f;
             var introCap = session != null ? session.MaxDepth : lineMeters;
             _introToDepth = Mathf.Min(Mathf.Max(_introFromDepth, FishingRules.IntroDepthMeters), introCap);
             _introT = _introToDepth <= _introFromDepth + 0.01f ? 1f : 0f;
-            _fishingHookEase = -1f;
             _fishingHookEase = -1f;
             _lineDrop = 0f;
             _campLineOff = false;
@@ -247,12 +352,37 @@ namespace IceFishing.Controller
             {
                 session.HookX = _worldView.hookDropPosition.x;
             }
+        }
 
-            _screen = AppScreen.Fishing;
-            _worldView.ApplyScreen(AppScreen.Fishing);
-            _worldView.ApplyCast(_fishingController.Session);
-            _worldView.BeginFish();
-            _bus.RaiseScreenChanged(_screen);
+        void SnapFishingToDepth(CastSession session, float depthMeters)
+        {
+            var cap = session != null ? session.MaxDepth : FishingRules.TutorialStartDepthMeters;
+            var depth = Mathf.Clamp(depthMeters, 0f, cap);
+            if (session != null)
+            {
+                session.Depth = depth;
+                session.ObservePeakDepth();
+                session.Phase = CastPhase.Descending;
+            }
+
+            _introFromDepth = depth;
+            _introToDepth = depth;
+            _introT = 1f;
+            _fishingHookEase = -1f;
+            _lineDrop = 0f;
+            _campLineOff = true;
+            _hubView.SetLineHookVisible(false);
+            _hubView.SetDiveAmount(1f);
+            _hubView.Hide();
+            _hudView.SetFade(1f);
+            _worldView.RefreshDropFromSceneHook();
+            _worldView.EndRodSplice();
+            _worldView.SetHookRevealed(true);
+            _worldView.SetWorldLineHidden(false);
+            if (session != null)
+            {
+                session.HookX = _worldView.hookDropPosition.x;
+            }
         }
 
         void TickIntro(float dt, float targetX, float minX, float maxX)
@@ -479,7 +609,15 @@ namespace IceFishing.Controller
             {
                 _settleView.Hide();
             }
+
+            if (_castTutorialView != null)
+            {
+                _castTutorialView.Hide();
+            }
+
             _worldView.ClearFish();
+            _worldView.UnlockTutorialCamera();
+            _worldView.SetTutorialSpawnFrozen(false);
             _worldView.ApplyScreen(AppScreen.Hub);
             _worldView.SetWorldLineHidden(true);
             _lineDrop = 0f;
@@ -505,6 +643,7 @@ namespace IceFishing.Controller
             ApplyFontOn(_pauseView);
             ApplyFontOn(_overlayView);
             ApplyFontOn(_settleView);
+            ApplyFontOn(_castTutorialView);
         }
 
         static void ApplyFontOn(Component root)
@@ -622,6 +761,33 @@ namespace IceFishing.Controller
             }
 
             _settleView.gameObject.SetActive(false);
+        }
+
+        void EnsureCastTutorialView()
+        {
+            if (_castTutorialView != null || _hubView == null)
+            {
+                return;
+            }
+
+            var canvas = _hubView.GetComponentInParent<Canvas>();
+            if (canvas == null)
+            {
+                return;
+            }
+
+            var existing = canvas.transform.Find(CastTutorialView.NodeName);
+            if (existing != null)
+            {
+                _castTutorialView = existing.GetComponent<CastTutorialView>();
+            }
+
+            if (_castTutorialView == null)
+            {
+                _castTutorialView = UiFactory.BuildCastTutorial(canvas.transform);
+            }
+
+            _castTutorialView.gameObject.SetActive(false);
         }
 
         void EnsureCampReward()
