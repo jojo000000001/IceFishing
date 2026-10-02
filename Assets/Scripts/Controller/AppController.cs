@@ -114,8 +114,9 @@ namespace IceFishing.Controller
 
             _worldView.SetLineWidth(_hubView.UnderwaterLineWidth);
             _worldView.GetHookLane(out var minX, out var maxX);
+            var steerCamera = _worldView.WorldCamera != null ? _worldView.WorldCamera : Camera.main;
             float? targetX = null;
-            if (!_fishingController.IsPaused && PointerSteerInput.TryGetWorldX(Camera.main, out var pointerX))
+            if (!_fishingController.IsPaused && PointerSteerInput.TryGetWorldX(steerCamera, out var pointerX))
             {
                 targetX = pointerX;
             }
@@ -127,6 +128,11 @@ namespace IceFishing.Controller
             if (_castTutorialActive)
             {
                 _hudView.Bind(session);
+                if (!_fishingController.IsPaused && session.Phase == CastPhase.Descending)
+                {
+                    session.Steer(dt, x, minX, maxX);
+                }
+
                 TickFishingUiFade();
                 return;
             }
@@ -280,8 +286,8 @@ namespace IceFishing.Controller
             }
 
             ShowHub();
-            RefreshHub();
-            _hubView.SetInteractable(true);
+            _hubView.SetInteractable(false);
+            _hubView.PlayCast(StartFishing);
         }
 
         void StartFishing()

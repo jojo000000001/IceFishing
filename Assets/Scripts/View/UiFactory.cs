@@ -1014,7 +1014,7 @@ namespace IceFishing.View
         {
             var root = CreatePanel(canvas, CastTutorialView.NodeName, Color.clear);
             Stretch(root.rectTransform);
-            root.raycastTarget = true;
+            root.raycastTarget = false;
             return PopulateCastTutorial(root.transform);
         }
 
@@ -1100,7 +1100,7 @@ namespace IceFishing.View
             var caption = CreateText(
                 card.transform,
                 "Caption",
-                "鱼钩下潜时长按屏幕可左右移动，下潜至极致前不要碰到鱼。",
+                CastTutorialView.CaptionAvoidFish,
                 34,
                 Color.white,
                 TextAnchor.MiddleCenter);

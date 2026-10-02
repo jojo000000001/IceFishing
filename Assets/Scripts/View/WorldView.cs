@@ -902,6 +902,11 @@ namespace IceFishing.View
             get { return _camp != null ? _camp.HubCameraY : CampField.WorldOrtho * 1.2f; }
         }
 
+        public Camera WorldCamera
+        {
+            get { return _worldCamera; }
+        }
+
         public float UnitsPerMeter
         {
             get { return Mathf.Max(0.05f, worldUnitsPerMeter); }

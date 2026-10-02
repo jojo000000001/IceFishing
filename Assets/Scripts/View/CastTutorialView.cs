@@ -12,7 +12,7 @@ namespace IceFishing.View
         public const string NodeName = "CastTutorialView";
 
         public const string CaptionAvoidFish =
-            "鱼钩下潜时长按屏幕可左右移动，下潜至极致前不要碰到鱼。";
+            "鱼钩下潜时按住鼠标左键可以左右移动，下潜至极致前不要碰到鱼。";
 
         public const string CaptionAscendCatch =
             "鱼钩向上回收过程，尽量捕获珍稀鱼类确保收益最大化。";
@@ -122,7 +122,8 @@ namespace IceFishing.View
             if (_rootImage != null)
             {
                 _rootImage.color = Color.white;
-                _rootImage.raycastTarget = true;
+                // 不挡鼠标，与正常对局一样用左键在框内转向；关闭钮单独接收点击。
+                _rootImage.raycastTarget = false;
                 var shader = Shader.Find("IceFishing/TutorialFrost");
                 if (shader != null)
                 {
