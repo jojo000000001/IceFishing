@@ -12,6 +12,7 @@ namespace IceFishing.Model
 
         public int Bait;
         public int Tokens;
+        public int Shells;
         public int LineLevel = 1;
         public int HookLevel = 1;
         public int SinkerLevel = 1;
@@ -25,6 +26,7 @@ namespace IceFishing.Model
             {
                 Bait = 8,
                 Tokens = 0,
+                Shells = 0,
                 LineLevel = 1,
                 HookLevel = 1,
                 SinkerLevel = 1,

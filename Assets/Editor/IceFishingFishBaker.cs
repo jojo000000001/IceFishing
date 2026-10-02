@@ -165,6 +165,8 @@ namespace IceFishing.EditorTools
             so.SpawnWeight = spec.Weight;
             so.MoveSpeed = spec.Speed;
             so.WorldHeight = spec.Height;
+            so.CampCoinReward = 10;
+            so.CampShellReward = 10;
             so.Prefab = prefab;
             EditorUtility.SetDirty(so);
         }

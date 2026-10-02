@@ -18,10 +18,19 @@ namespace IceFishing.Model
         public float MoveSpeed = 1f;
         public float WorldHeight = 0.9f;
         public FishView Prefab;
+        [Tooltip("回营地抛鱼结算时该条鱼兑换的纪念币")]
+        public int CampCoinReward = 10;
+        [Tooltip("回营地结算时该条鱼兑换的贝壳")]
+        public int CampShellReward = 10;
 
         public int TokenValue
         {
-            get { return GearTables.TokensForStars(Stars); }
+            get { return CampCoinReward > 0 ? CampCoinReward : 10; }
+        }
+
+        public int ShellValue
+        {
+            get { return CampShellReward > 0 ? CampShellReward : 10; }
         }
     }
 }

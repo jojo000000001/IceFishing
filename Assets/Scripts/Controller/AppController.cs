@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using IceFishing.Core;
 using IceFishing.Model;
 using IceFishing.View;
@@ -16,6 +17,7 @@ namespace IceFishing.Controller
         [SerializeField] FishingHudView _hudView;
         [SerializeField] PausePopupView _pauseView;
         [SerializeField] OverlayView _overlayView;
+        [SerializeField] SettleView _settleView;
         [SerializeField] GameObject _worldPrefab;
         [SerializeField] WorldView _worldView;
         WorldView _spawnedWorld;
@@ -33,12 +35,15 @@ namespace IceFishing.Controller
         float _lineDrop;
         bool _campLineOff;
         ScreenFlashView _screenFlash;
+        CampRewardPresentationView _campReward;
+        bool _playingCampReward;
 
         public void EditorAssign(
             HubView hubView,
             FishingHudView hudView,
             PausePopupView pauseView,
             OverlayView overlayView,
+            SettleView settleView,
             WorldView worldView,
             GameObject worldPrefab = null)
         {
@@ -46,6 +51,7 @@ namespace IceFishing.Controller
             _hudView = hudView;
             _pauseView = pauseView;
             _overlayView = overlayView;
+            _settleView = settleView;
             _worldView = worldView;
             if (worldPrefab != null)
             {
@@ -65,8 +71,10 @@ namespace IceFishing.Controller
 
             ApplyFonts();
             EnsureScreenFlash();
+            EnsureSettleView();
             _hubController = new HubController(_hubView, _overlayView, _profile, StartFishing, RefreshHub);
             _fishingController = new FishingController(_hudView, _pauseView, ReturnToHub);
+            WireSettle();
             ShowHub();
         }
 
@@ -78,6 +86,11 @@ namespace IceFishing.Controller
                 RefreshHub();
                 ParkHookUnderLine();
                 _worldView.SetWorldLineHidden(true);
+                return;
+            }
+
+            if (_playingCampReward)
+            {
                 return;
             }
 
@@ -108,6 +121,7 @@ namespace IceFishing.Controller
                 if (_worldView.TickLineJoin(dt, out depth))
                 {
                     session.Depth = depth;
+                    session.ObservePeakDepth();
                     session.HookX = _worldView.JoinHookX;
                 }
             }
@@ -116,7 +130,7 @@ namespace IceFishing.Controller
                 _fishingController.Tick(dt, minX, maxX, targetX);
                 if (session.Phase == CastPhase.Settle)
                 {
-                    ReturnToHub();
+                    BeginCampRewardReturn(session);
                     return;
                 }
             }
@@ -129,6 +143,7 @@ namespace IceFishing.Controller
                     var protectionBefore = session.ProtectionLeft;
                     if (_fishingController.TryHandleHeadHit(hit, out var catchSlot))
                     {
+                        session.RecordCatch(hit.Definition);
                         _worldView.AttachCaughtFish(hit, catchSlot);
                     }
 
@@ -213,6 +228,7 @@ namespace IceFishing.Controller
             _fishingHookEase = -1f;
             _lineDrop = 0f;
             _campLineOff = false;
+            _hubView.SetLineHookVisible(true);
             _hubView.DropLineAndHook(0f);
             _hudView.SetFade(0f);
             _worldView.RefreshDropFromSceneHook();
@@ -253,6 +269,7 @@ namespace IceFishing.Controller
             _worldView.SetDiveT(_introT);
             var t = _worldView.CurrentIntroEase;
             session.Depth = Mathf.Lerp(_introFromDepth, _introToDepth, t);
+            session.ObservePeakDepth();
             session.Phase = CastPhase.Descending;
             if (!_campLineOff)
             {
@@ -269,6 +286,7 @@ namespace IceFishing.Controller
             {
                 _campLineOff = true;
                 _fishingHookEase = t;
+                _hubView.SetLineHookVisible(false);
             }
 
             if (!_campLineOff)
@@ -363,10 +381,93 @@ namespace IceFishing.Controller
 
         void ReturnToHub()
         {
+            if (_playingCampReward)
+            {
+                return;
+            }
+
             _fishingController.Exit();
             _introT = 1f;
             _worldView.ClearFish();
             ShowHub();
+        }
+
+        void BeginCampRewardReturn(CastSession session)
+        {
+            if (_playingCampReward || session == null)
+            {
+                return;
+            }
+
+            _playingCampReward = true;
+            var caught = new List<FishDefinition>(session.CaughtFish);
+            var settle = CastSettleResult.From(caught, session.PeakDepth);
+            _fishingController.Exit();
+            _introT = 1f;
+            _worldView.ClearFish();
+            _hudView.Hide();
+            _pauseView.Hide();
+            _overlayView.Hide();
+            if (_settleView != null)
+            {
+                _settleView.Hide();
+            }
+            _worldView.ApplyScreen(AppScreen.Hub);
+            _worldView.SetWorldLineHidden(true);
+            _lineDrop = 0f;
+            _campLineOff = false;
+            _fishingHookEase = -1f;
+            _hubView.Show();
+            _hubView.SetInteractable(false);
+            _screen = AppScreen.Hub;
+            RefreshHub();
+
+            EnsureCampReward();
+            if (_campReward == null)
+            {
+                if (caught.Count > 0)
+                {
+                    AddCampRewards(caught);
+                }
+
+                FinishCampRewardReturn(settle);
+                return;
+            }
+
+            _campReward.Play(caught, _profile, _hubView.TokenLabelRect, () => FinishCampRewardReturn(settle));
+        }
+
+        void FinishCampRewardReturn(CastSettleResult settle)
+        {
+            _playingCampReward = false;
+            _worldView.SetHookRevealed(false);
+            RefreshHub();
+            _bus.RaiseScreenChanged(_screen);
+            ShowSettle(settle);
+        }
+
+        static void AddCampRewards(IReadOnlyList<FishDefinition> caught, PlayerProfile profile)
+        {
+            if (profile == null || caught == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < caught.Count; i++)
+            {
+                if (caught[i] == null)
+                {
+                    continue;
+                }
+
+                profile.Tokens += caught[i].TokenValue;
+                profile.Shells += caught[i].ShellValue;
+            }
+        }
+
+        void AddCampRewards(IReadOnlyList<FishDefinition> caught)
+        {
+            AddCampRewards(caught, _profile);
         }
 
         void ShowHub()
@@ -374,6 +475,10 @@ namespace IceFishing.Controller
             _hudView.Hide();
             _pauseView.Hide();
             _overlayView.Hide();
+            if (_settleView != null)
+            {
+                _settleView.Hide();
+            }
             _worldView.ClearFish();
             _worldView.ApplyScreen(AppScreen.Hub);
             _worldView.SetWorldLineHidden(true);
@@ -399,6 +504,7 @@ namespace IceFishing.Controller
             ApplyFontOn(_hudView);
             ApplyFontOn(_pauseView);
             ApplyFontOn(_overlayView);
+            ApplyFontOn(_settleView);
         }
 
         static void ApplyFontOn(Component root)
@@ -439,6 +545,99 @@ namespace IceFishing.Controller
             {
                 _screenFlash.PlayLightningFlash();
             }
+        }
+
+        void ShowSettle(CastSettleResult settle)
+        {
+            EnsureSettleView();
+            _hubView.SetSettleOverlayMode(true);
+            if (_settleView == null)
+            {
+                _hubView.SetSettleOverlayMode(false);
+                return;
+            }
+
+            _settleView.Show(settle);
+        }
+
+        void OnSettleExit()
+        {
+            if (_settleView != null)
+            {
+                _settleView.Hide();
+            }
+
+            _hubView.SetSettleOverlayMode(false);
+            _hubView.SetInteractable(true);
+            RefreshHub();
+        }
+
+        void OnSettleContinue()
+        {
+            if (_settleView != null)
+            {
+                _settleView.Hide();
+            }
+
+            _hubView.SetSettleOverlayMode(false);
+            StartFishing();
+        }
+
+        void WireSettle()
+        {
+            EnsureSettleView();
+            if (_settleView == null)
+            {
+                return;
+            }
+
+            _settleView.ExitClicked -= OnSettleExit;
+            _settleView.ContinueClicked -= OnSettleContinue;
+            _settleView.ExitClicked += OnSettleExit;
+            _settleView.ContinueClicked += OnSettleContinue;
+        }
+
+        void EnsureSettleView()
+        {
+            if (_settleView != null || _hubView == null)
+            {
+                return;
+            }
+
+            var canvas = _hubView.GetComponentInParent<Canvas>();
+            if (canvas == null)
+            {
+                return;
+            }
+
+            var existing = canvas.transform.Find(SettleView.NodeName);
+            if (existing != null)
+            {
+                _settleView = existing.GetComponent<SettleView>();
+            }
+
+            if (_settleView == null)
+            {
+                _settleView = UiFactory.BuildSettle(canvas.transform);
+            }
+
+            _settleView.gameObject.SetActive(false);
+        }
+
+        void EnsureCampReward()
+        {
+            if (_campReward != null || _hubView == null)
+            {
+                return;
+            }
+
+            var canvas = _hubView.GetComponentInParent<Canvas>();
+            if (canvas == null)
+            {
+                return;
+            }
+
+            _campReward = CampRewardPresentationView.Ensure(canvas.transform);
         }
     }
 }

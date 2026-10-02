@@ -16,6 +16,6 @@ MonoBehaviour:
   Icon: {fileID: 21300000, guid: 5eeb24d1c2056024bae3cba29290a47b, type: 3}
   PillOverride: {fileID: 0}
   TopOffsetY: -24
-  PreviewCurrent: 0
+  PreviewCurrent: 2
   MaxValue: 2
   PreviewValue: 0/6

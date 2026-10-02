@@ -21,3 +21,5 @@ MonoBehaviour:
   MoveSpeed: 1.15
   WorldHeight: 0.95
   Prefab: {fileID: 9100836114120554577, guid: 2ac27ed6f3d4aba41af7a9e23ff0005a, type: 3}
+  CampCoinReward: 10
+  CampShellReward: 10

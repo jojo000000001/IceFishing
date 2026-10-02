@@ -645,7 +645,9 @@ namespace IceFishing.View
                 return false;
             }
 
-            if (session.Phase == CastPhase.Returning || session.CaughtCount >= session.Capacity)
+            if (session.Phase == CastPhase.Returning
+                || session.CaughtCount >= session.Capacity
+                || session.DescendAfterCatchMeters > 0f)
             {
                 return false;
             }

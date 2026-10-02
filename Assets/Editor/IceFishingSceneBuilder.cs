@@ -18,6 +18,7 @@ namespace IceFishing.EditorTools
         public const string ScenePath = "Assets/Scenes/IceFishing.unity";
         public const string HudPrefabPath = "Assets/Prefabs/UI/FishingHudView.prefab";
         public const string HubPrefabPath = "Assets/Prefabs/UI/HubView.prefab";
+        public const string SettlePrefabPath = "Assets/Prefabs/UI/SettleView.prefab";
         public const string UnderwaterPrefabPath = "Assets/Prefabs/World/UnderwaterField.prefab";
         public const string CampPrefabPath = "Assets/Prefabs/World/CampField.prefab";
         public const string HudArtFolder = "Assets/Art/UI";
@@ -33,6 +34,13 @@ namespace IceFishing.EditorTools
         {
             BakeHubPrefab();
             ReplaceHubInOpenScene();
+        }
+
+        [MenuItem("IceFishing/Rebuild Settle Prefab")]
+        public static void RebuildSettlePrefabFromMenu()
+        {
+            BakeSettlePrefab();
+            ReplaceSettleInOpenScene();
         }
 
         [MenuItem("IceFishing/Rebuild Camp Prefab")]
@@ -128,7 +136,7 @@ namespace IceFishing.EditorTools
 
             var bootstrap = new GameObject("Bootstrap");
             var app = bootstrap.AddComponent<AppController>();
-            app.EditorAssign(ui.Hub, ui.Hud, ui.Pause, ui.Overlay, world, worldPrefab);
+            app.EditorAssign(ui.Hub, ui.Hud, ui.Pause, ui.Overlay, ui.Settle, world, worldPrefab);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -226,6 +234,175 @@ namespace IceFishing.EditorTools
             {
                 var so = new SerializedObject(app);
                 so.FindProperty("_hubView").objectReferenceValue = hub;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            AssetDatabase.SaveAssets();
+        }
+
+        static SettleView PlaceSettlePrefab(Transform canvas)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SettlePrefabPath);
+            if (prefab == null)
+            {
+                prefab = BakeSettlePrefab();
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, canvas);
+            instance.SetActive(false);
+            return instance.GetComponent<SettleView>();
+        }
+
+        [MenuItem("IceFishing/Ensure Settle Fish Card Slots")]
+        public static void EnsureSettleFishCardSlotsFromMenu()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(SettlePrefabPath);
+            if (existing == null)
+            {
+                Debug.LogWarning("Settle prefab not found at " + SettlePrefabPath);
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(SettlePrefabPath);
+            try
+            {
+                EnsureSettleFishCardSlots(root.transform);
+                PrefabUtility.SaveAsPrefabAsset(root, SettlePrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("Ensured " + SettleView.FishCardSlotCount + " fish card slots on SettleView prefab.");
+        }
+
+        static void EnsureSettleFishCardSlots(Transform root)
+        {
+            var grid = root.Find("SettleLayout/FishScroll/Viewport/Grid") as RectTransform;
+            if (grid == null)
+            {
+                Debug.LogWarning("SettleView grid not found; cannot create fish card slots.");
+                return;
+            }
+
+            var gridLayout = grid.GetComponent<GridLayoutGroup>();
+            var cellSize = gridLayout != null
+                ? gridLayout.cellSize
+                : new Vector2(228f, 266f);
+
+            for (var i = grid.childCount - 1; i >= 0; i--)
+            {
+                var child = grid.GetChild(i);
+                if (child.GetComponent<SettleFishCardSlot>() != null)
+                {
+                    continue;
+                }
+
+                Object.DestroyImmediate(child.gameObject);
+            }
+
+            for (var i = 0; i < SettleView.FishCardSlotCount; i++)
+            {
+                var slotName = SettleFishCardSlot.SlotName(i);
+                var found = grid.Find(slotName);
+                if (found == null)
+                {
+                    SettleFishCardSlot.CreatePlaceholder(grid, i, cellSize);
+                    continue;
+                }
+
+                var rt = found as RectTransform;
+                if (rt != null)
+                {
+                    rt.sizeDelta = cellSize;
+                }
+
+                var slot = found.GetComponent<SettleFishCardSlot>();
+                if (slot == null)
+                {
+                    slot = found.gameObject.AddComponent<SettleFishCardSlot>();
+                }
+
+                slot.ClearPlaceholder();
+            }
+        }
+
+        public static GameObject BakeSettlePrefab()
+        {
+            EnsureFolder("Assets/Prefabs");
+            EnsureFolder("Assets/Prefabs/UI");
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(SettlePrefabPath);
+            if (existing != null)
+            {
+                var root = PrefabUtility.LoadPrefabContents(SettlePrefabPath);
+                try
+                {
+                    UiFactory.BindSettleFromHierarchy(root.transform);
+                    EnsureSettleFishCardSlots(root.transform);
+                    PrefabUtility.SaveAsPrefabAsset(root, SettlePrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+
+                return AssetDatabase.LoadAssetAtPath<GameObject>(SettlePrefabPath);
+            }
+
+            var bakeRoot = new GameObject("SettlePrefabBake", typeof(RectTransform));
+            try
+            {
+                var settle = UiFactory.BuildSettle(bakeRoot.transform);
+                return PrefabUtility.SaveAsPrefabAsset(settle.gameObject, SettlePrefabPath);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(bakeRoot);
+            }
+        }
+
+        static void ReplaceSettleInOpenScene()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("Stop Play Mode before replacing SettleView in the scene.");
+                return;
+            }
+
+            var scene = EditorSceneManager.GetActiveScene();
+            if (scene.path != ScenePath)
+            {
+                scene = EditorSceneManager.OpenScene(ScenePath);
+            }
+
+            var canvas = GameObject.Find("UICanvas");
+            if (canvas == null)
+            {
+                Debug.LogError("UICanvas not found in IceFishing scene.");
+                return;
+            }
+
+            var old = canvas.GetComponentInChildren<SettleView>(true);
+            var sibling = canvas.transform.childCount;
+            if (old != null)
+            {
+                sibling = old.transform.GetSiblingIndex();
+                Undo.DestroyObjectImmediate(old.gameObject);
+            }
+
+            var settle = PlaceSettlePrefab(canvas.transform);
+            settle.transform.SetSiblingIndex(sibling);
+            settle.gameObject.SetActive(false);
+
+            var app = UnityEngine.Object.FindObjectOfType<AppController>();
+            if (app != null)
+            {
+                var so = new SerializedObject(app);
+                so.FindProperty("_settleView").objectReferenceValue = settle;
                 so.ApplyModifiedPropertiesWithoutUndo();
             }
 

@@ -6,7 +6,7 @@ using IceFishing.View;
 namespace IceFishing.Controller
 {
     /// <summary>
-    /// 钓鱼流程：推进下潜/上浮、暂停、撤退。鱼头碰撞语义在这里：下潜扣保护，上浮捕获。
+    /// 钓鱼流程：推进下潜/上浮、暂停、撤退。鱼头碰撞：下潜有保护扣次数，无保护则挂鱼并短下潜后上浮；上浮撞头捕获。
     /// </summary>
     public sealed class FishingController
     {
@@ -90,7 +90,9 @@ namespace IceFishing.Controller
                 return false;
             }
 
-            if (_session.Phase == CastPhase.Returning || _session.CaughtCount >= _session.Capacity)
+            if (_session.Phase == CastPhase.Returning
+                || _session.CaughtCount >= _session.Capacity
+                || _session.DescendAfterCatchMeters > 0f)
             {
                 return false;
             }

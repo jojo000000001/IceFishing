@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using IceFishing.Core;
 using UnityEngine;
 
@@ -23,6 +24,8 @@ namespace IceFishing.Model
         public const float FishSpawnAheadMinMeters = 8f;
         public const float FishSpawnAheadMaxMeters = 48f;
         public const float HookHitRadius = 0.22f;
+        /// <summary>无保护罩下潜挂鱼后，继续下潜的深度（米），再切上浮。</summary>
+        public const float DescendAfterHeadCatchMeters = 4f;
     }
 
     /// <summary>
@@ -33,6 +36,7 @@ namespace IceFishing.Model
     {
         public CastPhase Phase;
         public float Depth;
+        public float PeakDepth;
         public float MaxDepth;
         public float HookX;
         public int ProtectionLeft;
@@ -42,6 +46,22 @@ namespace IceFishing.Model
         public float DescentMetersPerSecond;
         public float AscendCatchMetersPerSecond;
         public float AscentMetersPerSecond;
+        /// <summary>挂鱼后剩余的下潜距离（米）；&gt;0 时仍算下潜阶段。</summary>
+        public float DescendAfterCatchMeters;
+        readonly List<FishDefinition> _caughtFish = new List<FishDefinition>();
+
+        public IReadOnlyList<FishDefinition> CaughtFish
+        {
+            get { return _caughtFish; }
+        }
+
+        public void RecordCatch(FishDefinition definition)
+        {
+            if (definition != null)
+            {
+                _caughtFish.Add(definition);
+            }
+        }
 
         public static CastSession CreatePlaceholder(
             PlayerProfile profile,
@@ -58,6 +78,7 @@ namespace IceFishing.Model
             {
                 Phase = CastPhase.Descending,
                 Depth = Mathf.Min(startDepth, maxDepth),
+                PeakDepth = Mathf.Min(startDepth, maxDepth),
                 MaxDepth = maxDepth,
                 HookX = 0f,
                 ProtectionMax = protection,
@@ -91,7 +112,17 @@ namespace IceFishing.Model
             if (Phase == CastPhase.Descending)
             {
                 Depth += DescentMetersPerSecond * dt;
-                if (Depth >= MaxDepth)
+                ObservePeakDepth();
+                if (DescendAfterCatchMeters > 0f)
+                {
+                    DescendAfterCatchMeters -= DescentMetersPerSecond * dt;
+                    if (DescendAfterCatchMeters <= 0f)
+                    {
+                        DescendAfterCatchMeters = 0f;
+                        Phase = CaughtCount >= Capacity ? CastPhase.Returning : CastPhase.Ascending;
+                    }
+                }
+                else if (Depth >= MaxDepth)
                 {
                     Depth = MaxDepth;
                     Phase = CastPhase.Ascending;
@@ -114,6 +145,14 @@ namespace IceFishing.Model
             }
         }
 
+        public void ObservePeakDepth()
+        {
+            if (Depth > PeakDepth)
+            {
+                PeakDepth = Depth;
+            }
+        }
+
         public void ApplyHeadHit()
         {
             if (Phase == CastPhase.Returning || Phase == CastPhase.Settle || CaughtCount >= Capacity)
@@ -123,13 +162,30 @@ namespace IceFishing.Model
 
             if (Phase == CastPhase.Descending)
             {
+                if (DescendAfterCatchMeters > 0f)
+                {
+                    return;
+                }
+
                 if (ProtectionLeft > 0)
                 {
                     ProtectionLeft--;
                     return;
                 }
 
-                Phase = CastPhase.Ascending;
+                if (CaughtCount >= Capacity)
+                {
+                    Phase = CastPhase.Ascending;
+                    return;
+                }
+
+                CaughtCount++;
+                DescendAfterCatchMeters = FishingRules.DescendAfterHeadCatchMeters;
+                if (CaughtCount >= Capacity)
+                {
+                    // 承重满：下潜一小段后 Tick 切 Returning。
+                }
+
                 return;
             }
 

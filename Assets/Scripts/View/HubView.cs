@@ -15,6 +15,9 @@ namespace IceFishing.View
     {
         [SerializeField] Text _baitText;
         [SerializeField] Text _tokenText;
+        [SerializeField] Text _fishCoinCountText;
+        [SerializeField] Text _shellCountText;
+        [SerializeField] Image _fishCoinIcon;
         [SerializeField] Text _regenText;
         [SerializeField] Button _startButton;
         [SerializeField] Button _gearButton;
@@ -313,6 +316,51 @@ namespace IceFishing.View
             group.blocksRaycasts = interactable;
         }
 
+        /// <summary>
+        /// 结算页盖住营地时：保留营地背景，隐藏 Hub 控件与人物，略放大并柔化背景。
+        /// </summary>
+        public void SetSettleOverlayMode(bool active)
+        {
+            EnsureCampBackdrop();
+            SetFade(1f);
+            SetInteractable(!active);
+
+            if (_layout == null)
+            {
+                _layout = transform.Find("HubLayout") as RectTransform;
+            }
+
+            if (_layout != null)
+            {
+                var layoutGroup = _layout.GetComponent<CanvasGroup>();
+                if (layoutGroup == null)
+                {
+                    layoutGroup = _layout.gameObject.AddComponent<CanvasGroup>();
+                }
+
+                layoutGroup.alpha = active ? 0f : 1f;
+                layoutGroup.interactable = !active;
+                layoutGroup.blocksRaycasts = !active;
+            }
+
+            var rig = transform.Find("FisherRig");
+            if (rig != null)
+            {
+                rig.gameObject.SetActive(!active);
+            }
+
+            if (_campBackdrop != null)
+            {
+                _campBackdrop.rectTransform.localScale = active
+                    ? new Vector3(1.05f, 1.05f, 1f)
+                    : Vector3.one;
+                _campBackdrop.color = active
+                    ? new Color(0.62f, 0.68f, 0.78f, 1f)
+                    : Color.white;
+                UiFactory.FitCampBackdrop(_campBackdrop, transform as RectTransform);
+            }
+        }
+
         CanvasGroup EnsureGroup()
         {
             var group = GetComponent<CanvasGroup>();
@@ -337,10 +385,54 @@ namespace IceFishing.View
             }
             EnsureCampBackdrop();
             UiFactory.FitFixedLayout(transform as RectTransform, ref _layout, "HubLayout", ref _fitting);
+            EnsureCurrencyBar();
             UiFactory.FitCampBackdrop(_campBackdrop, transform as RectTransform);
             if (!_casting)
             {
                 ShowGrip(0f);
+            }
+        }
+
+        void EnsureCurrencyBar()
+        {
+            if (_layout == null)
+            {
+                return;
+            }
+
+            UiFactory.EnsureHubCurrencyBar(_layout);
+            BindCurrencyRefs();
+            if (_tokenText != null && _fishCoinCountText != null)
+            {
+                _tokenText.gameObject.SetActive(false);
+            }
+        }
+
+        void BindCurrencyRefs()
+        {
+            if (_layout == null)
+            {
+                return;
+            }
+
+            var bar = _layout.Find("CurrencyBar");
+            if (bar == null)
+            {
+                return;
+            }
+
+            _fishCoinIcon = bar.Find("FishCoinRow/Icon")?.GetComponent<Image>();
+            _fishCoinCountText = bar.Find("FishCoinRow/Count")?.GetComponent<Text>();
+            _shellCountText = bar.Find("ShellRow/Count")?.GetComponent<Text>();
+            if (_fishCoinIcon != null && _fishCoinIcon.sprite == null)
+            {
+                _fishCoinIcon.sprite = CampUiSprites.FishCoin;
+            }
+
+            var shellIcon = bar.Find("ShellRow/Icon")?.GetComponent<Image>();
+            if (shellIcon != null && shellIcon.sprite == null)
+            {
+                shellIcon.sprite = CampUiSprites.Shell;
             }
         }
 
@@ -371,6 +463,20 @@ namespace IceFishing.View
             EnsureCampBackdrop();
         }
 
+        /// <summary>结算鱼币飞向的锚点（右上角鱼币图标）。</summary>
+        public RectTransform TokenLabelRect
+        {
+            get
+            {
+                if (_fishCoinIcon != null)
+                {
+                    return _fishCoinIcon.rectTransform;
+                }
+
+                return _tokenText != null ? _tokenText.rectTransform : null;
+            }
+        }
+
         public void Refresh(PlayerProfile profile, float secondsToNext)
         {
             if (profile == null)
@@ -384,9 +490,18 @@ namespace IceFishing.View
                 _baitText.text = "饵料 " + profile.DisplayBait + " / " + PlayerProfile.MaxBait;
             }
 
-            if (_tokenText != null)
+            if (_fishCoinCountText != null)
+            {
+                _fishCoinCountText.text = profile.Tokens.ToString();
+            }
+            else if (_tokenText != null)
             {
                 _tokenText.text = "纪念币 " + profile.Tokens;
+            }
+
+            if (_shellCountText != null)
+            {
+                _shellCountText.text = profile.Shells.ToString();
             }
 
             if (_regenText != null)
@@ -944,6 +1059,8 @@ namespace IceFishing.View
             var font = UiFactory.ResolveFont();
             SetFont(_baitText, font);
             SetFont(_tokenText, font);
+            SetFont(_fishCoinCountText, font);
+            SetFont(_shellCountText, font);
             SetFont(_regenText, font);
         }
 
