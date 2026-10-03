@@ -161,7 +161,7 @@ namespace IceFishing.View
             rt.sizeDelta = size;
 
             var button = image.gameObject.AddComponent<Button>();
-            StyleSettleActionButton(button, normal, pressed);
+            StyleSpriteSwapButton(button, normal, pressed, false);
 
             var text = CreateText(image.transform, "Label", label, 40, Color.white, TextAnchor.MiddleCenter);
             AddOutline(text);
@@ -171,13 +171,19 @@ namespace IceFishing.View
 
         public static void StyleSettleActionButton(Button button, Sprite normal = null, Sprite pressed = null)
         {
+            StyleSpriteSwapButton(
+                button,
+                normal ?? SettleUiSprites.ButtonNormal,
+                pressed ?? SettleUiSprites.ButtonPressed,
+                false);
+        }
+
+        public static void StyleSpriteSwapButton(Button button, Sprite normal, Sprite pressed, bool sliced)
+        {
             if (button == null)
             {
                 return;
             }
-
-            normal = normal ?? SettleUiSprites.ButtonNormal;
-            pressed = pressed ?? SettleUiSprites.ButtonPressed;
 
             var image = button.targetGraphic as Image;
             if (image == null)
@@ -188,7 +194,7 @@ namespace IceFishing.View
             if (image != null && normal != null)
             {
                 image.sprite = normal;
-                image.type = Image.Type.Simple;
+                image.type = sliced ? Image.Type.Sliced : Image.Type.Simple;
                 image.preserveAspect = false;
                 image.color = Color.white;
             }
@@ -764,8 +770,14 @@ namespace IceFishing.View
             AnchorTop(regen.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -340f), new Vector2(920f, 40f));
             regen.gameObject.SetActive(false);
 
-            var start = CreateButton(layout, "StartButton", "开始钓鱼", UiTheme.StartButton, new Vector2(720f, 128f));
-            AnchorBottom(start.transform as RectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 280f), new Vector2(720f, 128f));
+            var start = CreateSpriteButton(
+                layout,
+                "StartButton",
+                "开始钓鱼",
+                PauseUiSprites.HubStart,
+                PauseUiSprites.HubStartPressed,
+                new Vector2(720f, 136f));
+            AnchorBottom(start.transform as RectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 272f), new Vector2(720f, 136f));
 
             var gear = CreateButton(layout, "GearButton", "渔具", UiTheme.SecondaryButton, new Vector2(280f, 96f));
             var collection = CreateButton(layout, "CollectionButton", "图鉴", UiTheme.SecondaryButton, new Vector2(280f, 96f));
@@ -917,24 +929,95 @@ namespace IceFishing.View
 
         static PausePopupView BuildPause(Transform canvas)
         {
-            var dimmer = CreatePanel(canvas, "PausePopupView", UiTheme.Dimmer);
+            var dimmer = CreatePanel(canvas, "PausePopupView", new Color(0.02f, 0.07f, 0.12f, 0.62f));
             Stretch(dimmer.rectTransform);
+            return PopulatePause(dimmer.transform);
+        }
 
-            var panel = CreatePanel(dimmer.transform, "Panel", new Color(0.08f, 0.14f, 0.20f, 0.96f));
-            panel.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            panel.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            panel.rectTransform.sizeDelta = new Vector2(720f, 520f);
+        public static PausePopupView PopulatePause(Transform root)
+        {
+            for (var i = root.childCount - 1; i >= 0; i--)
+            {
+                var child = root.GetChild(i).gameObject;
+                if (Application.isPlaying)
+                {
+                    Object.Destroy(child);
+                }
+                else
+                {
+                    Object.DestroyImmediate(child);
+                }
+            }
 
-            var title = CreateText(panel.transform, "Title", "暂停", 56, UiTheme.Text, TextAnchor.MiddleCenter);
-            AnchorTop(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -36f), new Vector2(640f, 80f));
+            var dimmer = root.GetComponent<Image>();
+            if (dimmer != null)
+            {
+                dimmer.color = new Color(0.02f, 0.07f, 0.12f, 0.62f);
+                dimmer.raycastTarget = true;
+            }
 
-            var resume = CreateButton(panel.transform, "ResumeButton", "继续", UiTheme.SecondaryButton, new Vector2(520f, 100f));
-            AnchorBottom(resume.transform as RectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 150f), new Vector2(520f, 100f));
+            var panel = CreatePanel(root, "Panel", Color.white);
+            panel.raycastTarget = true;
+            if (PauseUiSprites.Panel != null)
+            {
+                panel.sprite = PauseUiSprites.Panel;
+                panel.type = Image.Type.Sliced;
+                panel.pixelsPerUnitMultiplier = 1.05f;
+            }
 
-            var retreat = CreateButton(panel.transform, "RetreatButton", "返回营地", UiTheme.DangerButton, new Vector2(520f, 100f));
-            AnchorBottom(retreat.transform as RectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, 30f), new Vector2(520f, 100f));
+            var panelRt = panel.rectTransform;
+            panelRt.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRt.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRt.pivot = new Vector2(0.5f, 0.5f);
+            panelRt.anchoredPosition = Vector2.zero;
+            panelRt.sizeDelta = new Vector2(760f, 580f);
 
-            var pause = dimmer.gameObject.AddComponent<PausePopupView>();
+            var icon = CreatePanel(panel.transform, "Icon", Color.white);
+            icon.raycastTarget = false;
+            if (PauseUiSprites.Icon != null)
+            {
+                icon.sprite = PauseUiSprites.Icon;
+                icon.preserveAspect = true;
+            }
+
+            var iconRt = icon.rectTransform;
+            iconRt.anchorMin = new Vector2(0.5f, 1f);
+            iconRt.anchorMax = new Vector2(0.5f, 1f);
+            iconRt.pivot = new Vector2(0.5f, 1f);
+            iconRt.anchoredPosition = new Vector2(0f, -36f);
+            iconRt.sizeDelta = new Vector2(108f, 108f);
+
+            var title = CreateText(panel.transform, "Title", "暂停", 58, UiTheme.Text, TextAnchor.MiddleCenter);
+            AddOutline(title);
+            AnchorTop(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -148f), new Vector2(640f, 72f));
+
+            var subtitle = CreateText(panel.transform, "Subtitle", "钓鱼已暂停", 30, UiTheme.TextMuted, TextAnchor.MiddleCenter);
+            AnchorTop(subtitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -214f), new Vector2(640f, 40f));
+
+            var resume = CreateSpriteButton(
+                panel.transform,
+                "ResumeButton",
+                "继续",
+                PauseUiSprites.Resume,
+                PauseUiSprites.ResumePressed,
+                new Vector2(560f, 108f));
+            AnchorBottom(resume.transform as RectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 196f), new Vector2(560f, 108f));
+
+            var retreat = CreateSpriteButton(
+                panel.transform,
+                "RetreatButton",
+                "返回营地",
+                PauseUiSprites.Retreat,
+                PauseUiSprites.RetreatPressed,
+                new Vector2(560f, 108f));
+            AnchorBottom(retreat.transform as RectTransform, new Vector2(0.5f, 0f), new Vector2(0f, 64f), new Vector2(560f, 108f));
+
+            var pause = root.GetComponent<PausePopupView>();
+            if (pause == null)
+            {
+                pause = root.gameObject.AddComponent<PausePopupView>();
+            }
+
             pause.Configure(resume, retreat);
             return pause;
         }

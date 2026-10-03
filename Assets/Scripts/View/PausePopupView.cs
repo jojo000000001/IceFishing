@@ -26,12 +26,22 @@ namespace IceFishing.View
 
         void Awake()
         {
+            EnsurePresentation();
             Wire();
         }
 
         public void Show()
         {
+            EnsurePresentation();
             gameObject.SetActive(true);
+        }
+
+        void EnsurePresentation()
+        {
+            if (transform.Find("Panel/Icon") == null)
+            {
+                UiFactory.PopulatePause(transform);
+            }
         }
 
         public void Hide()

@@ -89,6 +89,7 @@ namespace IceFishing.View
             _settingsButton = settingsButton;
             _layout = layout;
             Wire();
+            ApplyStartButtonArt();
             FitLayout();
         }
 
@@ -96,12 +97,14 @@ namespace IceFishing.View
         {
             Wire();
             EnsureCampBackdrop();
+            ApplyStartButtonArt();
             FitLayout();
         }
 
         void OnEnable()
         {
             EnsureCampBackdrop();
+            ApplyStartButtonArt();
             FitLayout();
         }
 
@@ -153,8 +156,23 @@ namespace IceFishing.View
             gameObject.SetActive(true);
             SetFade(1f);
             SetInteractable(true);
+            ApplyStartButtonArt();
             SetSinkPixels(0f);
             FitLayout();
+        }
+
+        void ApplyStartButtonArt()
+        {
+            if (_startButton == null)
+            {
+                _startButton = transform.Find("HubLayout/StartButton")?.GetComponent<Button>();
+            }
+
+            UiFactory.StyleSpriteSwapButton(
+                _startButton,
+                PauseUiSprites.HubStart,
+                PauseUiSprites.HubStartPressed,
+                false);
         }
 
         public void SetLineHookVisible(bool visible)

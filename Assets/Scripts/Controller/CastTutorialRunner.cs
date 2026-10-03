@@ -226,6 +226,7 @@ namespace IceFishing.Controller
                     world.ApplyCast(session);
                 }
 
+                TryHookHeadCatch(world, session, fishing);
                 world.TickFish(Time.deltaTime, session, false);
                 yield return null;
             }
@@ -234,6 +235,7 @@ namespace IceFishing.Controller
             session.Phase = CastPhase.Ascending;
             view.ApplyAscendProgress(1f);
             ApplyNormalAscendCast(world, session);
+            TryHookHeadCatch(world, session, fishing);
         }
 
         static IEnumerator WaitAfterAscend(
@@ -257,8 +259,28 @@ namespace IceFishing.Controller
             {
                 elapsed += Time.deltaTime;
                 ApplyNormalAscendCast(world, session);
+                TryHookHeadCatch(world, session, fishing);
                 world.TickFish(Time.deltaTime, session, false);
                 yield return null;
+            }
+        }
+
+        static void TryHookHeadCatch(WorldView world, CastSession session, FishingController fishing)
+        {
+            if (world == null || session == null || fishing == null)
+            {
+                return;
+            }
+
+            if (!world.TryHookHeadHit(session, out var fish) || fish == null)
+            {
+                return;
+            }
+
+            if (fishing.TryHandleHeadHit(fish, out var catchSlot))
+            {
+                session.RecordCatch(fish.Definition);
+                world.AttachCaughtFish(fish, catchSlot);
             }
         }
 

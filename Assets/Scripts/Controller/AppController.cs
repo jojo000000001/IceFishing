@@ -128,7 +128,8 @@ namespace IceFishing.Controller
             if (_castTutorialActive)
             {
                 _hudView.Bind(session);
-                if (!_fishingController.IsPaused && session.Phase == CastPhase.Descending)
+                if (!_fishingController.IsPaused
+                    && (session.Phase == CastPhase.Descending || session.Phase == CastPhase.Ascending))
                 {
                     session.Steer(dt, x, minX, maxX);
                 }
