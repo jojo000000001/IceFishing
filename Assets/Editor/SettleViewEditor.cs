@@ -13,14 +13,14 @@ namespace IceFishing.EditorTools
 
             var view = (SettleView)target;
             EditorGUILayout.Space(8f);
-            if (GUILayout.Button("生成 Grid 下 6 个白色鱼卡占位", GUILayout.Height(32f)))
+            if (GUILayout.Button("绑定预制体引用", GUILayout.Height(32f)))
             {
                 view.EnsureFishCardSlots();
                 EditorUtility.SetDirty(view);
             }
 
             EditorGUILayout.HelpBox(
-                "白色占位：调 Grid cell 与边距。鱼与奖励（Rewards/Coin、Shell 下图标与 Value 文字）均在 FishCardSlot_0 里调 RectTransform，运行时克隆沿用。列表纵向滚动展示全部鱼种。",
+                "布局以 SettleView 预制体为准。运行时从 FishCardSlot_0 克隆列表项并 Bind 数据，不再代码生成按钮或卡片层级。",
                 MessageType.Info);
         }
     }

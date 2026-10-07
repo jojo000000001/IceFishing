@@ -95,7 +95,7 @@ namespace IceFishing.EditorTools
             {
                 var worldObject = new GameObject("World");
                 world = worldObject.AddComponent<WorldView>();
-                var hubBackground = AssetDatabase.LoadAssetAtPath<Sprite>(UiFactory.HubCampMapPath);
+                var hubBackground = AssetDatabase.LoadAssetAtPath<Sprite>(HubUiBuilder.CampMapPath);
                 var hookSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Sprites/FishingAnchor.png");
                 world.Build(camera, hubBackground, hookSprite);
                 var camp = PlaceCampPrefab(world.transform, hubBackground);
@@ -179,7 +179,7 @@ namespace IceFishing.EditorTools
 
             if (prefab == null)
             {
-                return UiFactory.BuildCastTutorial(canvas);
+                return CastTutorialUiBuilder.Build(canvas);
             }
 
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, canvas);
@@ -210,7 +210,7 @@ namespace IceFishing.EditorTools
                 var root = PrefabUtility.LoadPrefabContents(HubPrefabPath);
                 try
                 {
-                    UiFactory.PopulateHub(root.transform);
+                    HubUiBuilder.PopulateHub(root.transform);
                     PrefabUtility.SaveAsPrefabAsset(root, HubPrefabPath);
                 }
                 finally
@@ -224,7 +224,7 @@ namespace IceFishing.EditorTools
             var bakeRoot = new GameObject("HubPrefabBake", typeof(RectTransform));
             try
             {
-                var hub = UiFactory.BuildHub(bakeRoot.transform);
+                var hub = HubUiBuilder.BuildHub(bakeRoot.transform);
                 return PrefabUtility.SaveAsPrefabAsset(hub.gameObject, HubPrefabPath);
             }
             finally
@@ -348,7 +348,7 @@ namespace IceFishing.EditorTools
                 var found = grid.Find(slotName);
                 if (found == null)
                 {
-                    SettleFishCardSlot.CreatePlaceholder(grid, i, cellSize);
+                    Debug.LogWarning("SettleView prefab missing " + slotName + "; add it in the prefab instead of generating it.");
                     continue;
                 }
 
@@ -378,7 +378,7 @@ namespace IceFishing.EditorTools
                 var root = PrefabUtility.LoadPrefabContents(SettlePrefabPath);
                 try
                 {
-                    UiFactory.BindSettleFromHierarchy(root.transform);
+                    SettleUiBuilder.BindFromHierarchy(root.transform);
                     EnsureSettleFishCardSlots(root.transform);
                     PrefabUtility.SaveAsPrefabAsset(root, SettlePrefabPath);
                 }
@@ -390,16 +390,8 @@ namespace IceFishing.EditorTools
                 return AssetDatabase.LoadAssetAtPath<GameObject>(SettlePrefabPath);
             }
 
-            var bakeRoot = new GameObject("SettlePrefabBake", typeof(RectTransform));
-            try
-            {
-                var settle = UiFactory.BuildSettle(bakeRoot.transform);
-                return PrefabUtility.SaveAsPrefabAsset(settle.gameObject, SettlePrefabPath);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(bakeRoot);
-            }
+            Debug.LogError("SettleView prefab missing at " + SettlePrefabPath + ". Layout lives in the prefab; do not generate it from code.");
+            return null;
         }
 
         public static GameObject BakeTutorialPrefab()
@@ -417,7 +409,7 @@ namespace IceFishing.EditorTools
             var bakeRoot = new GameObject("TutorialPrefabBake", typeof(RectTransform));
             try
             {
-                var tutorial = UiFactory.BuildCastTutorial(bakeRoot.transform);
+                var tutorial = CastTutorialUiBuilder.Build(bakeRoot.transform);
                 var saved = PrefabUtility.SaveAsPrefabAsset(tutorial.gameObject, TutorialPrefabPath);
                 Debug.Log("Baked CastTutorialView prefab at " + TutorialPrefabPath);
                 return saved;
@@ -506,7 +498,7 @@ namespace IceFishing.EditorTools
         {
             EnsureFolder("Assets/Prefabs");
             EnsureFolder("Assets/Prefabs/World");
-            var art = AssetDatabase.LoadAssetAtPath<Sprite>(UiFactory.HubCampMapPath);
+            var art = AssetDatabase.LoadAssetAtPath<Sprite>(HubUiBuilder.CampMapPath);
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(CampPrefabPath);
             if (existing != null)
             {
@@ -572,7 +564,7 @@ namespace IceFishing.EditorTools
                 return;
             }
 
-            var art = AssetDatabase.LoadAssetAtPath<Sprite>(UiFactory.HubCampMapPath);
+            var art = AssetDatabase.LoadAssetAtPath<Sprite>(HubUiBuilder.CampMapPath);
             var oldCamps = world.GetComponentsInChildren<CampField>(true);
             for (var i = 0; i < oldCamps.Length; i++)
             {
@@ -739,7 +731,7 @@ namespace IceFishing.EditorTools
                 var root = PrefabUtility.LoadPrefabContents(HudPrefabPath);
                 try
                 {
-                    UiFactory.PopulateHud(root.transform, sprites, statsProfile);
+                    FishingHudUiBuilder.PopulateHud(root.transform, sprites, statsProfile);
                     PrefabUtility.SaveAsPrefabAsset(root, HudPrefabPath);
                 }
                 finally
@@ -753,7 +745,7 @@ namespace IceFishing.EditorTools
             var bakeRoot = new GameObject("HudPrefabBake", typeof(RectTransform));
             try
             {
-                var hud = UiFactory.BuildHud(bakeRoot.transform, sprites);
+                var hud = FishingHudUiBuilder.BuildHud(bakeRoot.transform, sprites);
                 return PrefabUtility.SaveAsPrefabAsset(hud.gameObject, HudPrefabPath);
             }
             finally

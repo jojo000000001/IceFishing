@@ -791,10 +791,13 @@ namespace IceFishing.Controller
 
             if (_settleView == null)
             {
-                _settleView = UiFactory.BuildSettle(canvas.transform);
+                _settleView = SettleUiBuilder.Build(canvas.transform);
             }
 
-            _settleView.gameObject.SetActive(false);
+            if (_settleView != null)
+            {
+                _settleView.gameObject.SetActive(false);
+            }
         }
 
         void EnsureCastTutorialView()
@@ -818,7 +821,7 @@ namespace IceFishing.Controller
 
             if (_castTutorialView == null)
             {
-                _castTutorialView = UiFactory.BuildCastTutorial(canvas.transform);
+                _castTutorialView = CastTutorialUiBuilder.Build(canvas.transform);
             }
 
             _castTutorialView.gameObject.SetActive(false);

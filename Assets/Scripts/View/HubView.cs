@@ -218,7 +218,7 @@ namespace IceFishing.View
                 _campBackdrop.enabled = !show;
             }
 
-            var letterbox = transform.Find(UiFactory.CampLetterboxName);
+            var letterbox = transform.Find(HubUiBuilder.CampLetterboxName);
             if (letterbox != null)
             {
                 var letterboxImage = letterbox.GetComponent<Image>();
@@ -386,7 +386,7 @@ namespace IceFishing.View
                 _campBackdrop.color = active
                     ? new Color(0.62f, 0.68f, 0.78f, 1f)
                     : Color.white;
-                UiFactory.FitCampBackdrop(_campBackdrop, transform as RectTransform);
+                HubUiBuilder.FitCampBackdrop(_campBackdrop, transform as RectTransform);
             }
         }
 
@@ -413,10 +413,10 @@ namespace IceFishing.View
                 return;
             }
             EnsureCampBackdrop();
-            UiFactory.EnsureCampLetterboxFill(transform as RectTransform);
+            HubUiBuilder.EnsureCampLetterboxFill(transform as RectTransform);
             UiFactory.FitFixedLayout(transform as RectTransform, ref _layout, "HubLayout", ref _fitting);
             EnsureCurrencyBar();
-            UiFactory.FitCampBackdrop(_campBackdrop, transform as RectTransform);
+            HubUiBuilder.FitCampBackdrop(_campBackdrop, transform as RectTransform);
             OrderHubStage();
             FitFisherToStage(FindFisherRig());
             if (!_casting)
@@ -432,9 +432,9 @@ namespace IceFishing.View
                 return;
             }
 
-            UiFactory.EnsureHubCurrencyBar(_layout);
+            HubUiBuilder.EnsureHubCurrencyBar(_layout);
             var bar = _layout.Find("CurrencyBar") as RectTransform;
-            UiFactory.ApplyHubCurrencyBarLayout(bar);
+            HubUiBuilder.ApplyHubCurrencyBarLayout(bar);
             BindCurrencyRefs();
             if (_tokenText != null && _fishCoinCountText != null)
             {
@@ -483,11 +483,11 @@ namespace IceFishing.View
 
             if (_campBackdrop == null)
             {
-                _campBackdrop = UiFactory.CreateHubCampBackdrop(transform as RectTransform, _campMap);
+                _campBackdrop = HubUiBuilder.CreateHubCampBackdrop(transform as RectTransform, _campMap);
             }
             else if (_campMap != null && _campBackdrop.sprite != _campMap)
             {
-                UiFactory.ApplyHubCampBackdrop(_campBackdrop, _campMap);
+                HubUiBuilder.ApplyHubCampBackdrop(_campBackdrop, _campMap);
             }
         }
 
@@ -638,7 +638,7 @@ namespace IceFishing.View
 
         void OrderHubStage()
         {
-            var letterbox = transform.Find(UiFactory.CampLetterboxName);
+            var letterbox = transform.Find(HubUiBuilder.CampLetterboxName);
             if (letterbox != null)
             {
                 letterbox.SetAsFirstSibling();

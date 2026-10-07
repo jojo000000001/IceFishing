@@ -13,8 +13,6 @@ namespace IceFishing.View
     {
         public const string NodeName = "SettleView";
         public const int FishCardSlotCount = 6;
-        const float CardArtReferenceWidth = 292f;
-        const float CardArtReferenceHeight = 340f;
         static readonly Color CampFrostDimmer = new Color(0.04f, 0.09f, 0.15f, 0.52f);
 
         [SerializeField] Text _depthText;
@@ -65,11 +63,6 @@ namespace IceFishing.View
         void Awake()
         {
             ResolveMissingRefs();
-            if (!Application.isPlaying)
-            {
-                EnsureFishCardSlots();
-            }
-
             Wire();
             ApplyCampOverlayPresentation();
             FitLayout();
@@ -90,52 +83,17 @@ namespace IceFishing.View
         void OnEnable()
         {
             ResolveMissingRefs();
-            if (!Application.isPlaying)
-            {
-                EnsureFishCardSlots();
-            }
-
             FitLayout();
         }
 
-        [ContextMenu("Ensure Fish Card Slots")]
+        [ContextMenu("Bind Prefab Refs")]
         public void EnsureFishCardSlots()
         {
-            if (_grid == null)
-            {
-                return;
-            }
-
-            var cellSize = GetCardCellSize();
-            RemoveDynamicFishCards();
-
-            for (var i = 0; i < FishCardSlotCount; i++)
-            {
-                if (_grid.Find(SettleFishCardSlot.SlotName(i)) != null)
-                {
-                    continue;
-                }
-
-                SettleFishCardSlot.CreatePlaceholder(_grid, i, cellSize);
-            }
-
-            ResolveFishCardSlots();
-            for (var i = 0; i < FishCardSlotCount; i++)
-            {
-                if (_fishCardSlots != null && i < _fishCardSlots.Length && _fishCardSlots[i] != null)
-                {
-                    _fishCardSlots[i].ClearPlaceholder();
-                }
-            }
-
+            ResolveMissingRefs();
 #if UNITY_EDITOR
             if (!Application.isPlaying)
             {
                 UnityEditor.EditorUtility.SetDirty(this);
-                if (_grid != null)
-                {
-                    UnityEditor.EditorUtility.SetDirty(_grid.gameObject);
-                }
             }
 #endif
         }
@@ -263,26 +221,6 @@ namespace IceFishing.View
             gameObject.SetActive(false);
         }
 
-        Vector2 GetCardCellSize()
-        {
-            if (_grid != null)
-            {
-                var gridLayout = _grid.GetComponent<GridLayoutGroup>();
-                if (gridLayout != null && gridLayout.cellSize.x > 1f && gridLayout.cellSize.y > 1f)
-                {
-                    return gridLayout.cellSize;
-                }
-            }
-
-            return new Vector2(CardArtReferenceWidth, CardArtReferenceHeight);
-        }
-
-        float GetCardLayoutScale()
-        {
-            var cell = GetCardCellSize();
-            return Mathf.Min(cell.x / CardArtReferenceWidth, cell.y / CardArtReferenceHeight);
-        }
-
         void Bind(CastSettleResult result)
         {
             if (_depthText != null)
@@ -331,20 +269,22 @@ namespace IceFishing.View
                 return;
             }
 
-            var scale = GetCardLayoutScale();
-            var cellSize = GetCardCellSize();
-
             if (Application.isPlaying)
             {
                 SetLayoutPlaceholderSlotsActive(false);
                 RemoveRuntimeFishCards();
                 var template = GetCardTemplate();
-                for (var i = 0; i < _rows.Count; i++)
+                if (template == null)
                 {
-                    var card = template != null
-                        ? SettleFishCardSlot.CloneRuntimeCard(template, _grid, i)
-                        : SettleFishCardSlot.CreatePlaceholder(_grid, i, cellSize);
-                    card.Bind(_rows[i], scale);
+                    Debug.LogWarning("SettleView missing FishCardSlot_0 template on the prefab.");
+                }
+                else
+                {
+                    for (var i = 0; i < _rows.Count; i++)
+                    {
+                        var card = SettleFishCardSlot.CloneRuntimeCard(template, _grid, i);
+                        card.Bind(_rows[i]);
+                    }
                 }
             }
             else
@@ -436,11 +376,6 @@ namespace IceFishing.View
                     DestroyImmediate(go);
                 }
             }
-        }
-
-        void RemoveDynamicFishCards()
-        {
-            RemoveRuntimeFishCards();
         }
 
         void Wire()

@@ -40,7 +40,7 @@ namespace IceFishing.View
         {
             if (transform.Find("Panel/Icon") == null)
             {
-                UiFactory.PopulatePause(transform);
+                PauseUiBuilder.Populate(transform);
             }
         }
 
