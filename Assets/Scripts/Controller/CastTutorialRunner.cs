@@ -52,6 +52,7 @@ namespace IceFishing.Controller
                 view.SetCaption(CastTutorialView.CaptionAvoidFish);
                 world.SpawnTutorialBaitBelowHook(session, FishingRules.TutorialBaitBelowWorld);
                 world.SpawnTutorialAmbientSchool(session, 4);
+                world.SpawnTutorialRiseSchool(session, FishingRules.TutorialAscendMeters, 10);
                 yield return HoldStill(session, world, view, FishingRules.TutorialHoldSeconds);
                 yield return DropOntoBait(session, world, view, fishing);
                 if (session.CaughtCount <= 0)

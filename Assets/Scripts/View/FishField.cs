@@ -35,6 +35,7 @@ namespace IceFishing.View
         const int SpawnPlacementTries = 14;
         float _laneHeightScale = 1.65f;
         bool _spawnFrozen;
+        bool _deepBandPrimed;
 
         public void Configure(FishCatalog catalog)
         {
@@ -51,6 +52,7 @@ namespace IceFishing.View
             _waterlineY = waterlineY;
             _spawnCd = 0.08f;
             _seeded = false;
+            _deepBandPrimed = false;
             _bandDirs.Clear();
         }
 
@@ -68,6 +70,7 @@ namespace IceFishing.View
 
             _hooked.Clear();
             _seeded = false;
+            _deepBandPrimed = false;
             _spawnCd = 0f;
             _bandDirs.Clear();
         }
@@ -94,7 +97,7 @@ namespace IceFishing.View
             }
         }
 
-        public void TickHooked(float dt, Vector3 mouthAnchorWorld, bool paused)
+        public void TickHooked(float dt, Vector3 mouthAnchorWorld, float hookVelX, bool paused)
         {
             if (paused || dt <= 0f)
             {
@@ -104,9 +107,18 @@ namespace IceFishing.View
             for (var i = 0; i < _hooked.Count; i++)
             {
                 var view = _hooked[i];
-                if (view != null && view.IsHookAnimating)
+                if (view == null)
                 {
-                    view.TickHookTo(mouthAnchorWorld, dt);
+                    continue;
+                }
+
+                if (view.IsHookAnimating)
+                {
+                    view.TickHookTo(mouthAnchorWorld, hookVelX, dt);
+                }
+                else
+                {
+                    view.TickHookedSway(mouthAnchorWorld, hookVelX, dt);
                 }
             }
         }
@@ -171,6 +183,15 @@ namespace IceFishing.View
             SpawnTick(dt, session);
             TryFillMidDepthGap(session);
             TryFillDenseBand(session);
+            if (!_deepBandPrimed
+                && session.MaxDepth >= DeepBandLo
+                && session.Depth >= DeepPreloadDepthMeters)
+            {
+                TryFillDeepBand(session, true);
+                _deepBandPrimed = true;
+            }
+
+            TryFillDeepBand(session, false);
         }
 
         public void SetSpawnFrozen(bool frozen)
@@ -372,6 +393,51 @@ namespace IceFishing.View
             }
         }
 
+        /// <summary>上浮路径上铺几条普通鱼，避开钩道，当背景游过。</summary>
+        public void SpawnTutorialSchoolAbove(CastSession session, float hookY, float aboveWorld, int count)
+        {
+            if (_catalog == null || _catalog.Items == null || session == null)
+            {
+                return;
+            }
+
+            count = Mathf.Clamp(count, 0, 14);
+            float viewBottom;
+            float viewTop;
+            float viewHalfW;
+            GetViewRect(out viewBottom, out viewTop, out viewHalfW);
+            var span = Mathf.Max(2.4f, aboveWorld);
+            var spacing = Mathf.Max(1.15f, span / (count + 1));
+            for (var i = 0; i < count; i++)
+            {
+                var y = hookY + spacing * (i + 1);
+                if (y > hookY + span + 0.2f)
+                {
+                    break;
+                }
+
+                var depth = Mathf.Max(
+                    FishingRules.FishSpawnMinDepthMeters,
+                    session.Depth - (y - hookY) / Mathf.Max(0.05f, _unitsPerMeter));
+                var def = Pick(depth) ?? PickAny();
+                if (def == null || def.Prefab == null)
+                {
+                    continue;
+                }
+
+                var view = Rent(def);
+                var dir = i % 2 == 0 ? 1 : -1;
+                view.Bind(def, dir);
+                view.SetSwim(dir, SwimSpeedFor(def));
+                view.TutorialGuided = true;
+                view.gameObject.SetActive(true);
+                var side = viewHalfW * Random.Range(0.28f, 0.68f);
+                var x = dir > 0 ? -side : side;
+                PlaceHeadAt(view, x, y);
+                _alive.Add(view);
+            }
+        }
+
         static void PlaceHeadAt(FishView view, float headX, float headY)
         {
             view.transform.position = new Vector3(headX, headY, 0f);
@@ -481,6 +547,75 @@ namespace IceFishing.View
                     }
 
                     if (!TrySpawnAt(session, y, true, true))
+                    {
+                        break;
+                    }
+
+                    spawned++;
+                }
+            }
+        }
+
+        const float DeepBandLo = 88f;
+        const float DeepBandHi = 100f;
+        const float DeepLayerStepMeters = 1.5f;
+        const float DeepPreloadDepthMeters = 80f;
+        const int DeepPerLane = 2;
+        const float DeepSwimSpeedScale = 0.68f;
+
+        float HookLaneWorldY()
+        {
+            if (_camera == null)
+            {
+                return 0f;
+            }
+
+            return _camera.orthographicSize * FishingRules.HookScreenY;
+        }
+
+        float DepthToSpawnY(float depthMeters)
+        {
+            return -depthMeters * _unitsPerMeter + HookLaneWorldY();
+        }
+
+        float DepthFromSpawnY(float worldY)
+        {
+            var upm = Mathf.Max(0.05f, _unitsPerMeter);
+            return Mathf.Max(0f, (HookLaneWorldY() - worldY) / upm);
+        }
+
+        void TryFillDeepBand(CastSession session, bool aggressive)
+        {
+            if (_alive.Count >= _maxAlive || session.MaxDepth < DeepBandLo)
+            {
+                return;
+            }
+
+            if (session.Depth < DeepBandLo - 10f)
+            {
+                return;
+            }
+
+            if (session.Depth > DeepBandHi + 14f)
+            {
+                return;
+            }
+
+            var frameCap = aggressive ? 24 : 8;
+            var laneRange = Mathf.Max(0.35f, _unitsPerMeter * DeepLayerStepMeters * 0.42f);
+            var spawned = 0;
+            for (var depth = DeepBandLo; depth <= DeepBandHi; depth += DeepLayerStepMeters)
+            {
+                var y = DepthToSpawnY(depth);
+                var need = DeepPerLane - CountNearY(y, laneRange);
+                for (var n = 0; n < need; n++)
+                {
+                    if (_alive.Count >= _maxAlive || spawned >= frameCap)
+                    {
+                        return;
+                    }
+
+                    if (!TrySpawnDiverseAt(session, depth))
                     {
                         break;
                     }
@@ -688,6 +823,28 @@ namespace IceFishing.View
             return false;
         }
 
+        bool TrySpawnDiverseAt(CastSession session, float depthMeters)
+        {
+            if (_catalog == null || _catalog.Items == null || _catalog.Items.Length == 0)
+            {
+                return false;
+            }
+
+            if (_alive.Count >= _maxAlive)
+            {
+                return false;
+            }
+
+            var y = DepthToSpawnY(depthMeters);
+            var def = PickDiverse(depthMeters, y);
+            if (def == null || def.Prefab == null)
+            {
+                return false;
+            }
+
+            return PlaceSpawned(session, def, y, true, true, true);
+        }
+
         bool TrySpawnAt(CastSession session, float y, bool allowPacked = false, bool keepDepth = false)
         {
             if (_catalog == null || _catalog.Items == null || _catalog.Items.Length == 0)
@@ -718,12 +875,39 @@ namespace IceFishing.View
                 return false;
             }
 
+            return PlaceSpawned(session, def, y, allowPacked, keepDepth, false);
+        }
+
+        bool PlaceSpawned(
+            CastSession session,
+            FishDefinition def,
+            float y,
+            bool allowPacked,
+            bool keepDepth,
+            bool markDeepBand)
+        {
+            if (def == null || def.Prefab == null || session == null)
+            {
+                return false;
+            }
+
+            var waterMax = _waterlineY - 0.55f;
+            if (y > waterMax - 0.05f)
+            {
+                return false;
+            }
+
             float viewBottom;
             float viewTop;
             float viewHalfW;
             GetViewRect(out viewBottom, out viewTop, out viewHalfW);
             var view = Rent(def);
             var swimSpeed = SwimSpeedFor(def);
+            if (markDeepBand)
+            {
+                swimSpeed *= DeepSwimSpeedScale;
+            }
+
             var halfH = Mathf.Max(0.2f, def.WorldHeight * 0.5f);
             var spawnY = keepDepth ? y : SnapToLane(y);
             if (!allowPacked && LaneHasFish(spawnY))
@@ -759,6 +943,7 @@ namespace IceFishing.View
                 if (!OverlapsOthers(x, spawnY, halfW, halfH, view))
                 {
                     view.transform.position = new Vector3(x, spawnY, 0f);
+                    view.DeepBandAnchored = markDeepBand;
                     view.gameObject.SetActive(true);
                     _alive.Add(view);
                     return true;
@@ -767,6 +952,27 @@ namespace IceFishing.View
 
             ReleaseToPool(view);
             return false;
+        }
+
+        bool ShouldKeepDeepBandWhileDescending(FishView view, CastSession session, float fishWorldY)
+        {
+            if (view == null || !view.DeepBandAnchored || session == null)
+            {
+                return false;
+            }
+
+            var fishDepth = DepthFromSpawnY(fishWorldY);
+            if (fishDepth < DeepBandLo - 0.5f || fishDepth > DeepBandHi + 0.5f)
+            {
+                return false;
+            }
+
+            if (session.Depth < DeepBandLo - 6f)
+            {
+                return false;
+            }
+
+            return fishDepth >= session.Depth - 10f && fishDepth <= session.Depth + 4f;
         }
 
         float VerticalLaneSpacing()
@@ -991,6 +1197,115 @@ namespace IceFishing.View
             return _scratch[_scratch.Count - 1];
         }
 
+        /// <summary>深带刷鱼：每层种类尽量不同，并偏向体型大、适深区间高的鱼。</summary>
+        FishDefinition PickDiverse(float depth, float y)
+        {
+            _scratch.Clear();
+            var items = _catalog != null ? _catalog.Items : null;
+            if (items == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < items.Length; i++)
+            {
+                var def = items[i];
+                if (def == null || def.Prefab == null || def.SpawnWeight <= 0)
+                {
+                    continue;
+                }
+
+                if (depth < def.MinDepthMeters || depth > def.MaxDepthMeters)
+                {
+                    continue;
+                }
+
+                _scratch.Add(def);
+            }
+
+            if (_scratch.Count == 0)
+            {
+                return null;
+            }
+
+            var range = Mathf.Max(1.2f, _unitsPerMeter * 3.5f);
+            FishDefinition best = null;
+            var bestScore = int.MinValue;
+            for (var i = 0; i < _scratch.Count; i++)
+            {
+                var def = _scratch[i];
+                var nearbySame = CountNearbyOf(def, y, range);
+                var deepSame = CountInDepthBand(def, DeepBandLo, DeepBandHi);
+                var sizeScore = Mathf.RoundToInt(def.WorldHeight * 12f);
+                var deepPref = def.MinDepthMeters >= 75
+                    ? 8
+                    : def.MinDepthMeters >= 55
+                        ? 4
+                        : 0;
+                var score = sizeScore + deepPref - nearbySame * 5 - deepSame * 2 + Random.Range(0, 2);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = def;
+                }
+            }
+
+            return best ?? _scratch[Random.Range(0, _scratch.Count)];
+        }
+
+        int CountNearbyOf(FishDefinition def, float y, float range)
+        {
+            if (def == null)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < _alive.Count; i++)
+            {
+                var view = _alive[i];
+                if (view == null || view.Consumed || !view.gameObject.activeSelf || view.Definition != def)
+                {
+                    continue;
+                }
+
+                if (Mathf.Abs(view.transform.position.y - y) <= range)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        int CountInDepthBand(FishDefinition def, float loMeters, float hiMeters)
+        {
+            if (def == null || _unitsPerMeter <= 0.01f)
+            {
+                return 0;
+            }
+
+            var loY = -hiMeters * _unitsPerMeter;
+            var hiY = -loMeters * _unitsPerMeter;
+            var count = 0;
+            for (var i = 0; i < _alive.Count; i++)
+            {
+                var view = _alive[i];
+                if (view == null || view.Consumed || !view.gameObject.activeSelf || view.Definition != def)
+                {
+                    continue;
+                }
+
+                var y = view.transform.position.y;
+                if (y >= loY && y <= hiY)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
         FishDefinition PickAny()
         {
             var items = _catalog != null ? _catalog.Items : null;
@@ -1086,7 +1401,11 @@ namespace IceFishing.View
 
                 if (descending && p.y > passedTop)
                 {
-                    RecycleAt(i);
+                    if (!ShouldKeepDeepBandWhileDescending(view, session, p.y))
+                    {
+                        RecycleAt(i);
+                    }
+
                     continue;
                 }
 

@@ -30,8 +30,8 @@ namespace IceFishing.View
         public float lineLengthMeters = 180f;
         [Tooltip("绳子/深度下潜速度（米/秒）。越大钩子沉得越快。")]
         public float descentMetersPerSecond = 8f;
-        [Tooltip("未满携带上限、上浮捕获时的速度（米/秒）。")]
-        public float ascendCatchMetersPerSecond = 8f;
+        [Tooltip("到底或无保护罩挂鱼后的回拉速度（米/秒）。")]
+        public float ascendCatchMetersPerSecond = 3.5f;
         [Tooltip("已满鱼回营时的上浮速度（米/秒）。")]
         public float ascentMetersPerSecond = 10f;
         [Tooltip("1 米深度对应的世界距离。越大镜头往下卷得越快。")]
@@ -49,6 +49,8 @@ namespace IceFishing.View
         float _lineWidth = 0.07f;
         float _lastHookX;
         float _lastDepthMeters;
+        float _lastHookMouthX;
+        bool _hookMouthVelReady;
         float _introT = 1f;
         float _introEndDepth;
         float _introEndSlope = 1f;
@@ -619,12 +621,22 @@ namespace IceFishing.View
                     FishMaxAlive,
                     FishEveryMeters,
                     FishLaneHeightScale);
-                _fishField.TickHooked(dt, GetHookMouthAnchorWorld(), paused);
+                var mouth = GetHookMouthAnchorWorld();
+                var hookVelX = 0f;
+                if (_hookMouthVelReady && dt > 0f)
+                {
+                    hookVelX = (mouth.x - _lastHookMouthX) / dt;
+                }
+
+                _lastHookMouthX = mouth.x;
+                _hookMouthVelReady = true;
+                _fishField.TickHooked(dt, mouth, hookVelX, paused);
             }
         }
 
         public void ClearFish()
         {
+            _hookMouthVelReady = false;
             if (_hookCatchStack != null)
             {
                 for (var i = _hookCatchStack.childCount - 1; i >= 0; i--)
@@ -870,6 +882,29 @@ namespace IceFishing.View
             float hookY;
             ResolveTutorialHookLane(session, out hookX, out hookY);
             _fishField.SpawnTutorialSchoolBelow(session, hookY - FishingRules.TutorialBaitBelowWorld, count);
+        }
+
+        public void SpawnTutorialRiseSchool(CastSession session, float riseMeters, int count)
+        {
+            if (session == null)
+            {
+                return;
+            }
+
+            EnsureHookReference();
+            EnsureFishField();
+            if (_fishField == null)
+            {
+                return;
+            }
+
+            var waterline = _camp != null ? _camp.WaterlineY : CampField.WorldOrtho;
+            _fishField.EnsureCamera(_worldCamera != null ? _worldCamera : Camera.main, waterline);
+            ApplyCast(session);
+            float hookX;
+            float hookY;
+            ResolveTutorialHookLane(session, out hookX, out hookY);
+            _fishField.SpawnTutorialSchoolAbove(session, hookY, riseMeters * UnitsPerMeter, count);
         }
 
         void ResolveTutorialHookLane(CastSession session, out float hookX, out float hookY)

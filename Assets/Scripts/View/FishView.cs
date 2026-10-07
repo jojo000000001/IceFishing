@@ -28,8 +28,13 @@ namespace IceFishing.View
         Quaternion _hookTargetLocalRot;
         Transform _hookStack;
         int _hookSortOrder;
+        float _hookSwayDeg;
 
         const float HookAnimDuration = 0.32f;
+        const float HookSwayDegPerWorldSpeed = 2.35f;
+        const float HookSwayMaxDeg = 36f;
+        const float HookSwayResponse = 16f;
+        const float HookedHangLocalZ = 90f;
 
         public BoxCollider2D Head
         {
@@ -79,6 +84,9 @@ namespace IceFishing.View
         /// <summary>教程引导鱼：不改游向、不挤开、不回收，保证按设定速度撞钩。</summary>
         public bool TutorialGuided { get; set; }
 
+        /// <summary>90～100 米深带补鱼：下潜时放宽「过顶回收」。</summary>
+        public bool DeepBandAnchored { get; set; }
+
         public float WorldHalfWidth
         {
             get
@@ -112,6 +120,7 @@ namespace IceFishing.View
             _hooked = false;
             _hookAnimating = false;
             TutorialGuided = false;
+            DeepBandAnchored = false;
             _poolId = definition != null && definition.Prefab != null
                 ? definition.Prefab.GetInstanceID()
                 : 0;
@@ -152,6 +161,7 @@ namespace IceFishing.View
             _hookSortOrder = sortingOrder;
             _hookAnimating = true;
             _hookAnimElapsed = 0f;
+            _hookSwayDeg = 0f;
             transform.SetParent(hookStack, true);
             ApplyLossyScale(transform, lossyScale);
             _hookStartLocalPos = transform.localPosition;
@@ -172,7 +182,7 @@ namespace IceFishing.View
             }
         }
 
-        public void TickHookTo(Vector3 mouthAnchorWorld, float dt)
+        public void TickHookTo(Vector3 mouthAnchorWorld, float hookVelX, float dt)
         {
             if (!_hookAnimating || _hookStack == null || dt <= 0f)
             {
@@ -182,59 +192,67 @@ namespace IceFishing.View
             _hookAnimElapsed += dt;
             var t = Mathf.Clamp01(_hookAnimElapsed / HookAnimDuration);
             t = Mathf.SmoothStep(0f, 1f, t);
-            transform.localRotation = Quaternion.Slerp(_hookStartLocalRot, _hookTargetLocalRot, t);
+            UpdateHookSway(hookVelX, dt);
             transform.localScale = Vector3.Lerp(_hookStartLocalScale, _hookTargetLocalScale, t);
-            var targetLocal = ComputeAlignedLocalPosition(mouthAnchorWorld);
-            transform.localPosition = Vector3.Lerp(_hookStartLocalPos, targetLocal, t);
+            var hangRot = Quaternion.Euler(0f, 0f, HookedHangLocalZ + _hookSwayDeg);
+            transform.localRotation = Quaternion.Slerp(_hookStartLocalRot, hangRot, t);
+            SnapMouthTo(mouthAnchorWorld);
             if (t >= 1f)
             {
                 FinishHookTo(mouthAnchorWorld);
             }
         }
 
-        void FinishHookTo(Vector3 mouthAnchorWorld)
+        /// <summary>挂鱼后：嘴在钩上，身体随左右移动反向摆。</summary>
+        public void TickHookedSway(Vector3 mouthAnchorWorld, float hookVelX, float dt)
         {
-            _hookAnimating = false;
-            transform.localScale = _hookTargetLocalScale;
-            transform.localRotation = _hookTargetLocalRot;
-            AlignMouthTo(mouthAnchorWorld);
-            if (_hookStack != null)
+            if (!_hooked || _hookStack == null || _hookAnimating || dt <= 0f)
             {
-                var p = transform.position;
-                p.z = _hookStack.position.z - 0.02f;
-                transform.position = p;
+                return;
             }
 
+            UpdateHookSway(hookVelX, dt);
+            transform.localScale = _hookTargetLocalScale;
+            transform.localRotation = Quaternion.Euler(0f, 0f, HookedHangLocalZ + _hookSwayDeg);
+            SnapMouthTo(mouthAnchorWorld);
             if (_sprite != null)
             {
                 _sprite.sortingOrder = _hookSortOrder;
             }
         }
 
-        Vector3 ComputeAlignedLocalPosition(Vector3 mouthAnchorWorld)
+        void UpdateHookSway(float hookVelX, float dt)
         {
-            if (_hookStack == null)
-            {
-                return transform.localPosition;
-            }
-
-            var savedLocalPos = transform.localPosition;
-            var savedLocalRot = transform.localRotation;
-            var savedLocalScale = transform.localScale;
-            transform.localRotation = _hookTargetLocalRot;
-            transform.localScale = _hookTargetLocalScale;
-            AlignMouthTo(mouthAnchorWorld);
-            var alignedLocal = transform.localPosition;
-            transform.localPosition = savedLocalPos;
-            transform.localRotation = savedLocalRot;
-            transform.localScale = savedLocalScale;
-            return alignedLocal;
+            var target = Mathf.Clamp(
+                -hookVelX * HookSwayDegPerWorldSpeed,
+                -HookSwayMaxDeg,
+                HookSwayMaxDeg);
+            var k = 1f - Mathf.Exp(-HookSwayResponse * dt);
+            _hookSwayDeg = Mathf.Lerp(_hookSwayDeg, target, k);
         }
 
-        void AlignMouthTo(Vector3 mouthAnchorWorld)
+        void FinishHookTo(Vector3 mouthAnchorWorld)
+        {
+            _hookAnimating = false;
+            transform.localScale = _hookTargetLocalScale;
+            transform.localRotation = Quaternion.Euler(0f, 0f, HookedHangLocalZ + _hookSwayDeg);
+            SnapMouthTo(mouthAnchorWorld);
+            if (_sprite != null)
+            {
+                _sprite.sortingOrder = _hookSortOrder;
+            }
+        }
+
+        void SnapMouthTo(Vector3 mouthAnchorWorld)
         {
             transform.position = mouthAnchorWorld;
             transform.position += mouthAnchorWorld - GetMouthWorldPosition();
+            if (_hookStack != null)
+            {
+                var p = transform.position;
+                p.z = _hookStack.position.z - 0.02f;
+                transform.position = p;
+            }
         }
 
         Vector3 GetMouthWorldPosition()
@@ -274,6 +292,7 @@ namespace IceFishing.View
             _hooked = false;
             _hookAnimating = false;
             TutorialGuided = false;
+            DeepBandAnchored = false;
             _hookStack = null;
             _speed = 0f;
             if (poolRoot != null)
