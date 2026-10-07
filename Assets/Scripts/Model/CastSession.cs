@@ -20,6 +20,16 @@ namespace IceFishing.Model
         public const float TutorialStartDepthMeters = 95f;
         /// <summary>首次教程挂鱼后上浮距离（米）；镜头跟钩深，卡片同步上移。</summary>
         public const float TutorialAscendMeters = 10f;
+        /// <summary>教程下潜寻找挂鱼的额外深度（米）。镜头与卡片跟着钩走。</summary>
+        public const float TutorialDescendMeters = 12f;
+        /// <summary>教程开场停住、让玩家看清钩和鱼的时间（秒）。</summary>
+        public const float TutorialHoldSeconds = 1f;
+        /// <summary>停住之后钩子对准引导鱼下潜的时间（秒）。</summary>
+        public const float TutorialDropSeconds = 0.75f;
+        /// <summary>引导鱼在钩头正下方的世界距离；随后钩下潜这段距离刚好碰到。</summary>
+        public const float TutorialBaitBelowWorld = 1.45f;
+        /// <summary>旧：引导鱼游到钩头的时间。现改为钩下潜碰鱼。</summary>
+        public const float TutorialOncomingSeconds = 2.2f;
         public const float FishSpawnMinDepthMeters = 10f;
         public const float IntroDuration = 1.4f;
         public const int FishMaxAlive = 12;

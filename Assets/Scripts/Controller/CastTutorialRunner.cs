@@ -7,13 +7,12 @@ using UnityEngine;
 namespace IceFishing.Controller
 {
     /// <summary>
-    /// 首次教程：95 米切入；挂鱼后钩子上浮约 10 米（与正常对局相同：深度减小 + 镜头跟钩），停住后点退出或 5 秒回营地。
+    /// 首次教程：95 米切入。先停约 1 秒看清钩和下面的鱼，
+    /// 再下潜一小段刚好碰到引导鱼；挂鱼后镜头跟钩再下一小段，然后一起上浮约 10 米。
     /// </summary>
     public static class CastTutorialRunner
     {
-        const float HoldSeconds = 2f;
-        const float AutoReturnSeconds = 5f;
-        const float WaitForFishSeconds = 8f;
+        const float AutoReturnSeconds = 3f;
 
         public static IEnumerator Run(
             CastSession session,
@@ -37,58 +36,46 @@ namespace IceFishing.Controller
                 }
 
                 onUnderwaterReady?.Invoke();
-                world.SetTutorialSpawnFrozen(false);
+                world.SetTutorialSpawnFrozen(true);
+                world.ClearFish();
                 var startDepth = Mathf.Min(FishingRules.TutorialStartDepthMeters, session.MaxDepth);
                 session.Depth = startDepth;
                 session.ObservePeakDepth();
                 session.Phase = CastPhase.Descending;
                 session.ProtectionLeft = 0;
                 session.DescendAfterCatchMeters = 0f;
-                world.LockTutorialCamera(startDepth);
-                session.Depth = world.ClampDepthInsideTutorialFrame(view, session, session.Depth, 0.45f);
-                world.ApplyCast(session);
-
-                view.SetCaption(CastTutorialView.CaptionAvoidFish);
-                yield return Hold(HoldSeconds, world, view, session, fishing, false);
-
-                var catchDepth = world.ResolveTutorialDescendDepth(view, session);
-                yield return MoveDepth(
-                    session,
-                    world,
-                    view,
-                    fishing,
-                    catchDepth,
-                    session.DescentMetersPerSecond * 0.5f,
-                    true);
-                if (session.CaughtCount <= 0)
-                {
-                    yield return WaitForSwimmingCatch(session, world, view, fishing, WaitForFishSeconds);
-                }
-
-                session.DescendAfterCatchMeters = 0f;
-                session.Depth = world.ClampDepthInsideTutorialFrame(view, session, session.Depth, 0.7f);
-                world.ApplyCast(session);
-                yield return Tick(0.35f, world, session, view, fishing, false);
-
-                view.SetCaption(CastTutorialView.CaptionAscendCatch);
-                yield return Hold(HoldSeconds, world, view, session, fishing, false);
-
+                world.UnlockTutorialCamera();
                 view.CaptureCardRestPose();
                 view.ResetCardPose();
-                var ascendFromDepth = session.Depth;
-                var finalAscendDepth = Mathf.Max(
-                    0f,
-                    ascendFromDepth - FishingRules.TutorialAscendMeters);
-                var lockedCameraDepth = world.TutorialLockedCameraDepth;
+                ApplyCoupled(world, view, session);
 
-                yield return RiseAfterCatch(
+                view.SetCaption(CastTutorialView.CaptionAvoidFish);
+                world.SpawnTutorialBaitBelowHook(session, FishingRules.TutorialBaitBelowWorld);
+                world.SpawnTutorialAmbientSchool(session, 4);
+                yield return HoldStill(session, world, view, FishingRules.TutorialHoldSeconds);
+                yield return DropOntoBait(session, world, view, fishing);
+                if (session.CaughtCount <= 0)
+                {
+                    yield return DescendToMax(session, world, view, fishing);
+                }
+
+                if (session.CaughtCount > 0)
+                {
+                    yield return DescendAfterCatch(session, world, view, fishing);
+                }
+
+                view.SetCaption(CastTutorialView.CaptionAscendCatch);
+                view.CaptureCardRestPose();
+                var ascendFromDepth = session.Depth;
+                var finalAscendDepth = Mathf.Max(0f, ascendFromDepth - FishingRules.TutorialAscendMeters);
+
+                yield return RiseTogether(
                     world,
                     view,
                     session,
                     fishing,
                     ascendFromDepth,
                     finalAscendDepth,
-                    lockedCameraDepth,
                     session.AscendCatchMetersPerSecond);
 
                 yield return WaitAfterAscend(
@@ -108,59 +95,71 @@ namespace IceFishing.Controller
             }
         }
 
-        static IEnumerator Hold(
-            float seconds,
+        static IEnumerator HoldStill(
+            CastSession session,
             WorldView world,
             CastTutorialView view,
-            CastSession session,
-            FishingController fishing,
-            bool catchFish)
-        {
-            yield return Tick(seconds, world, session, view, fishing, catchFish);
-        }
-
-        static IEnumerator Tick(
-            float seconds,
-            WorldView world,
-            CastSession session,
-            CastTutorialView view,
-            FishingController fishing,
-            bool catchFish)
+            float seconds)
         {
             var elapsed = 0f;
             while (elapsed < seconds)
             {
                 elapsed += Time.deltaTime;
-                ApplyClamped(world, view, session);
-                world.TickFish(Time.deltaTime, session, false);
-                if (catchFish && TryCatchSwimming(session, world, fishing, view))
+                ApplyCoupled(world, view, session);
+                TickLiveFish(world, session, null);
+                yield return null;
+            }
+        }
+
+        static IEnumerator DropOntoBait(
+            CastSession session,
+            WorldView world,
+            CastTutorialView view,
+            FishingController fishing)
+        {
+            var dropMeters = world.MetersForWorldDrop(FishingRules.TutorialBaitBelowWorld);
+            var targetDepth = Mathf.Min(session.MaxDepth, session.Depth + dropMeters);
+            var mps = Mathf.Clamp(dropMeters / FishingRules.TutorialDropSeconds, 0.8f, 3f);
+            session.Phase = CastPhase.Descending;
+            while (session.Depth < targetDepth - 0.01f && session.CaughtCount <= 0)
+            {
+                session.Depth = Mathf.MoveTowards(session.Depth, targetDepth, mps * Time.deltaTime);
+                session.ObservePeakDepth();
+                ApplyCoupled(world, view, session);
+                TickLiveFish(world, session, fishing);
+                if (TryCatchSwimming(session, world, fishing, view))
                 {
                     yield break;
                 }
 
                 yield return null;
             }
+
+            if (session.CaughtCount <= 0)
+            {
+                session.Depth = targetDepth;
+                session.ObservePeakDepth();
+                ApplyCoupled(world, view, session);
+                TryCatchSwimming(session, world, fishing, view);
+            }
         }
 
-        static IEnumerator MoveDepth(
+        static IEnumerator DescendToMax(
             CastSession session,
             WorldView world,
             CastTutorialView view,
-            FishingController fishing,
-            float targetDepth,
-            float metersPerSecond,
-            bool catchFish)
+            FishingController fishing)
         {
-            var mps = Mathf.Max(0.5f, metersPerSecond);
-            targetDepth = world.ClampDepthInsideTutorialFrame(view, session, targetDepth, catchFish ? 0.45f : 0.7f);
-
-            while (Mathf.Abs(session.Depth - targetDepth) > 0.05f)
+            var mps = Mathf.Max(0.5f, session.DescentMetersPerSecond);
+            var targetDepth = session.MaxDepth;
+            session.Phase = CastPhase.Descending;
+            while (session.Depth < targetDepth - 0.05f)
             {
                 session.Depth = Mathf.MoveTowards(session.Depth, targetDepth, mps * Time.deltaTime);
                 session.ObservePeakDepth();
-                ApplyClamped(world, view, session);
-                world.TickFish(Time.deltaTime, session, false);
-                if (catchFish && TryCatchSwimming(session, world, fishing, view))
+                ApplyCoupled(world, view, session);
+                TickLiveFish(world, session, fishing);
+                if (TryCatchSwimming(session, world, fishing, view))
                 {
                     yield break;
                 }
@@ -170,71 +169,82 @@ namespace IceFishing.Controller
 
             session.Depth = targetDepth;
             session.ObservePeakDepth();
-            ApplyClamped(world, view, session);
+            session.Phase = CastPhase.Ascending;
+            ApplyCoupled(world, view, session);
         }
 
         /// <summary>
-        /// ① 镜头仍锁在教程深度：只减钩深，钩在框内上移到中上（与下潜对称，不闪现）。
-        /// ② 到达中上后：与正常对局一样镜头跟钩深上浮，教程卡同步上移。
+        /// 挂鱼后按正常规则再下潜一小段：镜头继续跟钩，避免锁镜导致钩子闪现。
         /// </summary>
-        static IEnumerator RiseAfterCatch(
+        static IEnumerator DescendAfterCatch(
+            CastSession session,
+            WorldView world,
+            CastTutorialView view,
+            FishingController fishing)
+        {
+            if (session.CaughtCount <= 0)
+            {
+                ApplyCoupled(world, view, session);
+                yield break;
+            }
+
+            if (session.DescendAfterCatchMeters <= 0f)
+            {
+                session.DescendAfterCatchMeters = FishingRules.DescendAfterHeadCatchMeters;
+            }
+
+            session.Phase = CastPhase.Descending;
+            view.CaptureCardRestPose();
+            var mps = Mathf.Max(0.5f, session.DescentMetersPerSecond);
+
+            while (session.DescendAfterCatchMeters > 0f)
+            {
+                var step = mps * Time.deltaTime;
+                session.Depth = Mathf.Min(session.MaxDepth, session.Depth + step);
+                session.ObservePeakDepth();
+                session.DescendAfterCatchMeters -= step;
+                ApplyCoupled(world, view, session);
+                TickLiveFish(world, session, fishing);
+                yield return null;
+            }
+
+            session.DescendAfterCatchMeters = 0f;
+            session.Phase = CastPhase.Ascending;
+            ApplyCoupled(world, view, session);
+        }
+
+        /// <summary>卡片和钩一起上浮：镜头跟钩深，卡片按上升进度上移。</summary>
+        static IEnumerator RiseTogether(
             WorldView world,
             CastTutorialView view,
             CastSession session,
             FishingController fishing,
             float ascendFromDepth,
             float targetDepth,
-            float lockedCameraDepth,
             float metersPerSecond)
         {
             session.Phase = CastPhase.Ascending;
             session.DescendAfterCatchMeters = 0f;
-            session.Depth = ascendFromDepth;
             var mps = Mathf.Max(0.5f, metersPerSecond);
-            var cardCoupled = false;
-            var coupleStartDepth = ascendFromDepth;
-            var coupleCamBlend = 0f;
-            const float coupleCameraBlendSeconds = 0.35f;
+            var span = Mathf.Max(0.01f, ascendFromDepth - targetDepth);
+            view.CaptureCardRestPose();
             view.ResetCardPose();
 
             while (session.Depth > targetDepth + 0.05f)
             {
                 session.Depth = Mathf.MoveTowards(session.Depth, targetDepth, mps * Time.deltaTime);
-
-                if (!cardCoupled)
-                {
-                    ApplyTutorialLockedCast(world, lockedCameraDepth, session);
-                    var forceCoupleDepth = ascendFromDepth - Mathf.Min(3f, ascendFromDepth - targetDepth);
-                    if (HookReachedAscendAnchor(world, view) || session.Depth <= forceCoupleDepth)
-                    {
-                        cardCoupled = true;
-                        coupleStartDepth = session.Depth;
-                        view.CaptureCardRestPose();
-                    }
-                }
-                else
-                {
-                    coupleCamBlend = Mathf.Min(
-                        1f,
-                        coupleCamBlend + Time.deltaTime / Mathf.Max(0.05f, coupleCameraBlendSeconds));
-                    var coupledSpan = Mathf.Max(0.01f, coupleStartDepth - targetDepth);
-                    var cardProgress = (coupleStartDepth - session.Depth) / coupledSpan;
-                    view.ApplyAscendProgress(cardProgress);
-                    var cameraDepth = Mathf.Lerp(lockedCameraDepth, session.Depth, coupleCamBlend);
-                    world.SyncTutorialCameraDepth(cameraDepth);
-                    session.ObservePeakDepth();
-                    world.ApplyCast(session);
-                }
-
+                var progress = (ascendFromDepth - session.Depth) / span;
+                view.ApplyAscendProgress(progress);
+                ApplyRising(world, session);
                 TryHookHeadCatch(world, session, fishing);
-                world.TickFish(Time.deltaTime, session, false);
+                TickLiveFish(world, session, fishing);
                 yield return null;
             }
 
             session.Depth = targetDepth;
             session.Phase = CastPhase.Ascending;
             view.ApplyAscendProgress(1f);
-            ApplyNormalAscendCast(world, session);
+            ApplyRising(world, session);
             TryHookHeadCatch(world, session, fishing);
         }
 
@@ -249,20 +259,27 @@ namespace IceFishing.Controller
         {
             session.Depth = frozenDepth;
             session.Phase = CastPhase.Ascending;
-            var coupledSpan = Mathf.Max(0.01f, ascendFromDepth - frozenDepth);
-            var cardProgress = coupledSpan > 0.01f
-                ? (ascendFromDepth - frozenDepth) / coupledSpan
-                : 1f;
-            view.ApplyAscendProgress(Mathf.Clamp01(cardProgress));
+            var span = Mathf.Max(0.01f, ascendFromDepth - frozenDepth);
+            view.ApplyAscendProgress(Mathf.Clamp01((ascendFromDepth - frozenDepth) / span));
             var elapsed = 0f;
             while (elapsed < seconds)
             {
                 elapsed += Time.deltaTime;
-                ApplyNormalAscendCast(world, session);
+                ApplyRising(world, session);
                 TryHookHeadCatch(world, session, fishing);
-                world.TickFish(Time.deltaTime, session, false);
+                TickLiveFish(world, session, fishing);
                 yield return null;
             }
+        }
+
+        static void TickLiveFish(WorldView world, CastSession session, FishingController fishing)
+        {
+            if (world == null)
+            {
+                return;
+            }
+
+            world.TickFish(Time.deltaTime, session, fishing != null && fishing.IsPaused);
         }
 
         static void TryHookHeadCatch(WorldView world, CastSession session, FishingController fishing)
@@ -284,55 +301,17 @@ namespace IceFishing.Controller
             }
         }
 
-        static bool HookReachedAscendAnchor(WorldView world, CastTutorialView view)
+        static void ApplyCoupled(WorldView world, CastTutorialView view, CastSession session)
         {
-            if (!view.TryGetAscendHookAnchorScreen(out var anchor))
-            {
-                return false;
-            }
-
-            return world.GetHookScreenY() >= anchor.y - 6f;
-        }
-
-        static void ApplyTutorialLockedCast(WorldView world, float cameraDepthMeters, CastSession session)
-        {
-            world.SyncTutorialCameraDepth(cameraDepthMeters);
+            world.UnlockTutorialCamera();
             session.ObservePeakDepth();
             world.ApplyCast(session);
+            view.ResetCardPose();
         }
 
-        static void ApplyNormalAscendCast(WorldView world, CastSession session)
+        static void ApplyRising(WorldView world, CastSession session)
         {
-            world.SyncTutorialCameraDepth(session.Depth);
-            session.ObservePeakDepth();
-            world.ApplyCast(session);
-        }
-
-        static IEnumerator WaitForSwimmingCatch(
-            CastSession session,
-            WorldView world,
-            CastTutorialView view,
-            FishingController fishing,
-            float seconds)
-        {
-            var elapsed = 0f;
-            while (elapsed < seconds && session.CaughtCount <= 0)
-            {
-                elapsed += Time.deltaTime;
-                ApplyClamped(world, view, session);
-                world.TickFish(Time.deltaTime, session, false);
-                if (TryCatchSwimming(session, world, fishing, view))
-                {
-                    yield break;
-                }
-
-                yield return null;
-            }
-        }
-
-        static void ApplyClamped(WorldView world, CastTutorialView view, CastSession session)
-        {
-            session.Depth = world.ClampDepthInsideTutorialFrame(view, session, session.Depth, 0.55f);
+            world.UnlockTutorialCamera();
             session.ObservePeakDepth();
             world.ApplyCast(session);
         }
@@ -349,7 +328,6 @@ namespace IceFishing.Controller
             }
 
             session.ProtectionLeft = 0;
-            session.DescendAfterCatchMeters = 0f;
             session.Phase = CastPhase.Descending;
             if (!world.TryTutorialHeadHit(session, out var fish) || fish == null)
             {
@@ -358,6 +336,7 @@ namespace IceFishing.Controller
 
             if (fishing.TryHandleHeadHit(fish, out var slot))
             {
+                session.RecordCatch(fish.Definition);
                 world.AttachCaughtFish(fish, slot);
             }
             else
@@ -365,7 +344,6 @@ namespace IceFishing.Controller
                 world.AttachCaughtFish(fish, Mathf.Max(0, session.CaughtCount - 1));
             }
 
-            session.DescendAfterCatchMeters = 0f;
             view?.SetCaption(CastTutorialView.CaptionAscendCatch);
             return true;
         }

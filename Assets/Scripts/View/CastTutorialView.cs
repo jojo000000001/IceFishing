@@ -31,6 +31,8 @@ namespace IceFishing.View
         Image _rootImage;
         Vector2 _restCardPos;
         bool _hasRestCardPos;
+        float _restHookAlignScreenY;
+        bool _hasRestHookAlign;
         static readonly int HoleId = Shader.PropertyToID("_Hole");
 
         public bool IsVisible
@@ -101,6 +103,11 @@ namespace IceFishing.View
             _visible = true;
             transform.SetAsLastSibling();
             gameObject.SetActive(true);
+            if (_card != null)
+            {
+                _card.gameObject.SetActive(true);
+            }
+
             EnsurePresentation();
             CaptureCardRestPose();
         }
@@ -206,6 +213,12 @@ namespace IceFishing.View
                 _restCardPos = _card.anchoredPosition;
                 _hasRestCardPos = true;
             }
+
+            if (TryGetHookAlignScreenY(0.42f, out var alignY))
+            {
+                _restHookAlignScreenY = alignY;
+                _hasRestHookAlign = true;
+            }
         }
 
         public void ResetCardPose()
@@ -214,6 +227,51 @@ namespace IceFishing.View
             {
                 _card.anchoredPosition = _restCardPos;
             }
+        }
+
+        /// <summary>下潜时卡片跟着钩的屏幕高度走，钩保持在方框内。钩坐标无效时不挪卡，避免飞出屏幕。</summary>
+        public void FollowHookScreenY(float hookScreenY)
+        {
+            ResolveMissingRefs();
+            if (_card == null || hookScreenY < 8f || hookScreenY > Screen.height - 8f)
+            {
+                return;
+            }
+
+            if (!_hasRestCardPos || !_hasRestHookAlign)
+            {
+                CaptureCardRestPose();
+            }
+
+            if (!_hasRestHookAlign)
+            {
+                return;
+            }
+
+            var canvas = GetComponentInParent<Canvas>();
+            var scale = canvas != null && canvas.scaleFactor > 0.01f ? canvas.scaleFactor : 1f;
+            var maxDy = Mathf.Max(80f, _card.rect.height * 0.35f);
+            var dy = Mathf.Clamp((hookScreenY - _restHookAlignScreenY) / scale, -maxDy, maxDy);
+            _card.anchoredPosition = _restCardPos + new Vector2(0f, dy);
+        }
+
+        bool TryGetHookAlignScreenY(float holeTFromBottom, out float screenY)
+        {
+            screenY = 0f;
+            var hole = _window != null ? _window : _card;
+            if (hole == null)
+            {
+                return false;
+            }
+
+            var window = ScreenRect(hole, UiCamera());
+            if (window.height < 8f)
+            {
+                return false;
+            }
+
+            screenY = Mathf.Lerp(window.yMin, window.yMax, Mathf.Clamp01(holeTFromBottom));
+            return true;
         }
 
         /// <summary>按上浮进度 0～1 平移教程卡（与 10 米上升同步，避免一帧跳满）。</summary>

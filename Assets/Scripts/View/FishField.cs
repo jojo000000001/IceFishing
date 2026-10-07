@@ -178,6 +178,16 @@ namespace IceFishing.View
             _spawnFrozen = frozen;
         }
 
+        public void EnsureCamera(Camera camera, float waterlineY)
+        {
+            if (camera != null)
+            {
+                _camera = camera;
+            }
+
+            _waterlineY = waterlineY;
+        }
+
         /// <summary>引导：在指定位置刷一条 80～100 米带的静止目标鱼。</summary>
         public FishView SpawnTutorialBait(CastSession session, float x, float y)
         {
@@ -252,7 +262,7 @@ namespace IceFishing.View
             }
 
             var depth = session.Depth;
-            var def = Pick(depth) ?? PickAny();
+            var def = PickTutorialBait(depth) ?? Pick(depth) ?? PickAny();
             if (def == null || def.Prefab == null)
             {
                 return null;
@@ -261,19 +271,128 @@ namespace IceFishing.View
             var view = Rent(def);
             view.Bind(def, 1);
             view.SetSwim(0, 0f);
+            view.TutorialGuided = true;
             view.gameObject.SetActive(true);
-            var pos = new Vector3(hookX, hookY, 0f);
-            view.transform.position = pos;
-            if (view.Head != null)
+            PlaceHeadAt(view, hookX, hookY);
+            _alive.Add(view);
+            return view;
+        }
+
+        /// <summary>
+        /// 引导：在钩头同一高度、从侧面游来，速度按 travelSeconds 刚好经过钩头。
+        /// </summary>
+        public FishView SpawnTutorialOncoming(
+            CastSession session,
+            float hookX,
+            float hookY,
+            float travelSeconds)
+        {
+            if (_catalog == null || _catalog.Items == null || _catalog.Items.Length == 0 || session == null)
             {
-                var head = view.Head.bounds.center;
-                pos.x += hookX - head.x;
-                pos.y += hookY - head.y;
-                view.transform.position = pos;
+                return null;
+            }
+
+            var def = PickTutorialBait(session.Depth) ?? Pick(session.Depth) ?? PickAny();
+            if (def == null || def.Prefab == null)
+            {
+                return null;
+            }
+
+            var view = Rent(def);
+            view.Bind(def, 1);
+            float viewBottom;
+            float viewTop;
+            float viewHalfW;
+            GetViewRect(out viewBottom, out viewTop, out viewHalfW);
+            if (hookY < viewBottom + 0.2f || hookY > viewTop - 0.2f)
+            {
+                hookY = Mathf.Lerp(viewBottom, viewTop, 0.55f);
+            }
+
+            var travel = Mathf.Max(0.8f, travelSeconds);
+            var distance = Mathf.Clamp(viewHalfW * 0.5f, 1.8f, 2.8f);
+            var speed = distance / travel;
+            var dir = 1;
+            view.SetSwim(dir, speed);
+            view.TutorialGuided = true;
+            view.gameObject.SetActive(true);
+            PlaceHeadAt(view, hookX - dir * distance, hookY);
+            var sprite = view.GetComponentInChildren<SpriteRenderer>();
+            if (sprite != null)
+            {
+                sprite.sortingOrder = Mathf.Max(sprite.sortingOrder, 12);
             }
 
             _alive.Add(view);
             return view;
+        }
+
+        /// <summary>引导鱼下方再铺几条普通鱼，按各自速度水平游。</summary>
+        public void SpawnTutorialSchoolBelow(CastSession session, float baitY, int count)
+        {
+            if (_catalog == null || _catalog.Items == null || session == null)
+            {
+                return;
+            }
+
+            count = Mathf.Clamp(count, 0, 8);
+            float viewBottom;
+            float viewTop;
+            float viewHalfW;
+            GetViewRect(out viewBottom, out viewTop, out viewHalfW);
+            var spacing = Mathf.Max(1.2f, VerticalLaneSpacing());
+            for (var i = 0; i < count; i++)
+            {
+                var y = baitY - spacing * (i + 1);
+                if (y < viewBottom + 0.4f)
+                {
+                    break;
+                }
+
+                var def = Pick(session.Depth) ?? PickAny();
+                if (def == null || def.Prefab == null)
+                {
+                    continue;
+                }
+
+                var view = Rent(def);
+                var dir = i % 2 == 0 ? -1 : 1;
+                view.Bind(def, dir);
+                view.SetSwim(dir, SwimSpeedFor(def));
+                view.TutorialGuided = false;
+                view.gameObject.SetActive(true);
+                var x = Random.Range(-viewHalfW * 0.62f, viewHalfW * 0.62f);
+                if (Mathf.Abs(x - session.HookX) < 0.8f)
+                {
+                    x = session.HookX + dir * 1.15f;
+                }
+
+                PlaceHeadAt(view, x, y);
+                _alive.Add(view);
+            }
+        }
+
+        static void PlaceHeadAt(FishView view, float headX, float headY)
+        {
+            view.transform.position = new Vector3(headX, headY, 0f);
+            if (view.Head == null)
+            {
+                return;
+            }
+
+            Physics2D.SyncTransforms();
+            var head = view.Head.bounds.center;
+            var dx = headX - head.x;
+            var dy = headY - head.y;
+            if (Mathf.Abs(dx) > 4f || Mathf.Abs(dy) > 4f)
+            {
+                return;
+            }
+
+            var pos = view.transform.position;
+            pos.x += dx;
+            pos.y += dy;
+            view.transform.position = pos;
         }
 
         public bool TryGetHeadHit(Vector2 hookPos, float radius, out FishView fish)
@@ -534,6 +653,14 @@ namespace IceFishing.View
 
         void GetViewRect(out float viewBottom, out float viewTop, out float viewHalfW)
         {
+            if (_camera == null)
+            {
+                viewHalfW = 4f;
+                viewBottom = _hookY - 8f;
+                viewTop = _hookY + 8f;
+                return;
+            }
+
             var cam = _camera.transform.position;
             var ortho = _camera.orthographicSize;
             viewHalfW = ortho * CampField.ViewAspect(_camera.aspect);
@@ -706,6 +833,11 @@ namespace IceFishing.View
                     continue;
                 }
 
+                if (view.TutorialGuided)
+                {
+                    continue;
+                }
+
                 var dir = ResolveBandDir(view.transform.position.y);
                 if (view.Dir != dir)
                 {
@@ -767,7 +899,7 @@ namespace IceFishing.View
             for (var i = 0; i < _alive.Count; i++)
             {
                 var a = _alive[i];
-                if (a == null || a.Consumed || !a.gameObject.activeSelf)
+                if (a == null || a.Consumed || a.TutorialGuided || !a.gameObject.activeSelf)
                 {
                     continue;
                 }
@@ -778,7 +910,7 @@ namespace IceFishing.View
                 for (var j = i + 1; j < _alive.Count; j++)
                 {
                     var b = _alive[j];
-                    if (b == null || b.Consumed || !b.gameObject.activeSelf)
+                    if (b == null || b.Consumed || b.TutorialGuided || !b.gameObject.activeSelf)
                     {
                         continue;
                     }
@@ -870,7 +1002,7 @@ namespace IceFishing.View
             for (var i = 0; i < items.Length; i++)
             {
                 var def = items[i];
-                if (def != null && def.Prefab != null && def.SpawnWeight > 0)
+                if (def != null && def.Prefab != null)
                 {
                     return def;
                 }
@@ -911,7 +1043,7 @@ namespace IceFishing.View
                 }
 
                 var y = view.transform.position.y;
-                if (y >= wakeBottom && y <= wakeTop)
+                if (view.TutorialGuided || (y >= wakeBottom && y <= wakeTop))
                 {
                     view.Tick(dt);
                 }
@@ -936,6 +1068,11 @@ namespace IceFishing.View
                 if (view == null)
                 {
                     RecycleAt(i);
+                    continue;
+                }
+
+                if (view.TutorialGuided)
+                {
                     continue;
                 }
 
@@ -971,7 +1108,7 @@ namespace IceFishing.View
                     continue;
                 }
 
-                if (view.Hooked)
+                if (view.Hooked || view.TutorialGuided)
                 {
                     continue;
                 }

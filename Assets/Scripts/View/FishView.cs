@@ -76,6 +76,9 @@ namespace IceFishing.View
             get { return _hookAnimating; }
         }
 
+        /// <summary>教程引导鱼：不改游向、不挤开、不回收，保证按设定速度撞钩。</summary>
+        public bool TutorialGuided { get; set; }
+
         public float WorldHalfWidth
         {
             get
@@ -108,6 +111,7 @@ namespace IceFishing.View
             _consumed = false;
             _hooked = false;
             _hookAnimating = false;
+            TutorialGuided = false;
             _poolId = definition != null && definition.Prefab != null
                 ? definition.Prefab.GetInstanceID()
                 : 0;
@@ -269,6 +273,7 @@ namespace IceFishing.View
             _consumed = false;
             _hooked = false;
             _hookAnimating = false;
+            TutorialGuided = false;
             _hookStack = null;
             _speed = 0f;
             if (poolRoot != null)

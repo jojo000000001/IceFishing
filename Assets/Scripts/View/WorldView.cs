@@ -800,6 +800,112 @@ namespace IceFishing.View
             return _fishField.SpawnTutorialAtHook(session, session.HookX, below);
         }
 
+        public FishView SpawnTutorialBaitBelowHook(CastSession session, float belowWorld)
+        {
+            if (session == null)
+            {
+                return null;
+            }
+
+            EnsureHookReference();
+            EnsureFishField();
+            if (_fishField == null)
+            {
+                return null;
+            }
+
+            var waterline = _camp != null ? _camp.WaterlineY : CampField.WorldOrtho;
+            _fishField.EnsureCamera(_worldCamera != null ? _worldCamera : Camera.main, waterline);
+            ApplyCast(session);
+            var body = GetHookBodyCenterWorld();
+            var y = body.y - Mathf.Max(0.35f, belowWorld);
+            var travel = FishingRules.TutorialHoldSeconds + FishingRules.TutorialDropSeconds;
+            return _fishField.SpawnTutorialOncoming(session, body.x, y, travel);
+        }
+
+        public float MetersForWorldDrop(float worldDistance)
+        {
+            return Mathf.Max(0.05f, worldDistance) / UnitsPerMeter;
+        }
+
+        public FishView SpawnTutorialOncomingFish(CastSession session, float travelSeconds)
+        {
+            if (session == null)
+            {
+                return null;
+            }
+
+            EnsureHookReference();
+            EnsureFishField();
+            if (_fishField == null)
+            {
+                return null;
+            }
+
+            var waterline = _camp != null ? _camp.WaterlineY : CampField.WorldOrtho;
+            _fishField.EnsureCamera(_worldCamera != null ? _worldCamera : Camera.main, waterline);
+            ApplyCast(session);
+            var body = GetHookBodyCenterWorld();
+            return _fishField.SpawnTutorialOncoming(session, body.x, body.y, travelSeconds);
+        }
+
+        public void SpawnTutorialAmbientSchool(CastSession session, int count)
+        {
+            if (session == null)
+            {
+                return;
+            }
+
+            EnsureHookReference();
+            EnsureFishField();
+            if (_fishField == null)
+            {
+                return;
+            }
+
+            var waterline = _camp != null ? _camp.WaterlineY : CampField.WorldOrtho;
+            _fishField.EnsureCamera(_worldCamera != null ? _worldCamera : Camera.main, waterline);
+            ApplyCast(session);
+            float hookX;
+            float hookY;
+            ResolveTutorialHookLane(session, out hookX, out hookY);
+            _fishField.SpawnTutorialSchoolBelow(session, hookY - FishingRules.TutorialBaitBelowWorld, count);
+        }
+
+        void ResolveTutorialHookLane(CastSession session, out float hookX, out float hookY)
+        {
+            hookX = session != null ? session.HookX : 0f;
+            hookY = _hook != null ? _hook.position.y : GetHookBodyCenterWorld().y;
+            if (_worldCamera == null)
+            {
+                return;
+            }
+
+            var camY = _worldCamera.transform.position.y;
+            var ortho = _worldCamera.orthographicSize;
+            var expectedY = camY + ortho * FishingRules.HookScreenY;
+            if (hookY < camY - ortho + 0.2f || hookY > camY + ortho - 0.2f)
+            {
+                hookY = expectedY;
+            }
+        }
+
+        public static bool TutorialFishPassedHook(FishView fish, CastSession session)
+        {
+            if (fish == null || session == null)
+            {
+                return false;
+            }
+
+            if (fish.Consumed || fish.Hooked)
+            {
+                return true;
+            }
+
+            var headX = fish.Head != null ? fish.Head.bounds.center.x : fish.transform.position.x;
+            return fish.Dir * (headX - session.HookX) > 0.45f;
+        }
+
         public void AttachCaughtFish(FishView fish, int slotIndex)
         {
             if (fish == null || _hook == null)
