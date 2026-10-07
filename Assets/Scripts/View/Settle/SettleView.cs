@@ -3,15 +3,21 @@ using System.Collections.Generic;
 using IceFishing.Model;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace IceFishing.View
 {
     /// <summary>
-    /// 鍥炶惀缁撶畻椤碉細鏈眬娣卞害銆佹笖鑾风绫绘暟閲忋€侀奔甯?璐濆３鍚堣銆?    /// </summary>
+    /// 回营结算页：深度、渔获、合计。布局来自预制体。
+    /// </summary>
     [ExecuteAlways]
     public sealed class SettleView : MonoBehaviour
     {
         public const string NodeName = "SettleView";
+        public const string PrefabPath = "Assets/Prefabs/UI/SettleView.prefab";
+        public const string PrefabResourcePath = "UI/SettleView";
         public const int FishCardSlotCount = 6;
         static readonly Color CampFrostDimmer = new Color(0.04f, 0.09f, 0.15f, 0.52f);
 
@@ -34,30 +40,47 @@ namespace IceFishing.View
         public event Action ExitClicked;
         public event Action ContinueClicked;
 
-        public void Configure(
-            Text depthText,
-            RectTransform grid,
-            Text emptyText,
-            Text totalCoinText,
-            Text totalShellText,
-            Button exitButton,
-            Button continueButton,
-            RectTransform layout = null,
-            Dropdown speciesDropdown = null,
-            ScrollRect fishScroll = null)
+        public static SettleView InstantiateOn(Transform canvas)
         {
-            _depthText = depthText;
-            _grid = grid;
-            _emptyText = emptyText;
-            _totalCoinText = totalCoinText;
-            _totalShellText = totalShellText;
-            _exitButton = exitButton;
-            _continueButton = continueButton;
-            _layout = layout;
-            _speciesDropdown = speciesDropdown;
-            _fishScroll = fishScroll;
-            ResolveMissingRefs();
-            Wire();
+            if (canvas == null)
+            {
+                return null;
+            }
+
+            var existing = canvas.Find(NodeName);
+            if (existing != null)
+            {
+                return existing.GetComponent<SettleView>();
+            }
+
+            var prefab = LoadPrefab();
+            if (prefab == null)
+            {
+                Debug.LogError("SettleView prefab missing. Expected " + PrefabPath);
+                return null;
+            }
+
+            var instance = Instantiate(prefab, canvas, false);
+            instance.name = NodeName;
+            var rt = instance.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                UiFactory.Stretch(rt);
+            }
+
+            return instance.GetComponent<SettleView>();
+        }
+
+        public static GameObject LoadPrefab()
+        {
+#if UNITY_EDITOR
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (asset != null)
+            {
+                return asset;
+            }
+#endif
+            return Resources.Load<GameObject>(PrefabResourcePath);
         }
 
         void Awake()

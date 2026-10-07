@@ -51,13 +51,6 @@ namespace IceFishing.View
         public void ClearPlaceholder()
         {
             ResolveRefs();
-            if (_background != null)
-            {
-                _background.sprite = null;
-                _background.type = Image.Type.Simple;
-                _background.color = Color.white;
-            }
-
             BindStars(0);
             if (_fish != null)
             {
@@ -91,22 +84,6 @@ namespace IceFishing.View
 
             ResolveRefs();
             gameObject.SetActive(true);
-
-            if (_background != null)
-            {
-                if (SettleUiSprites.Card != null)
-                {
-                    _background.sprite = SettleUiSprites.Card;
-                    _background.type = Image.Type.Sliced;
-                    _background.color = Color.white;
-                }
-                else
-                {
-                    _background.sprite = null;
-                    _background.color = new Color(0.18f, 0.48f, 0.72f, 0.92f);
-                }
-            }
-
             BindStars(row.Stars);
             BindFish(row.Sprite);
             BindRewards(row.CoinEach, row.ShellEach);

@@ -4,15 +4,21 @@ using System.Collections.Generic;
 using IceFishing.Model;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace IceFishing.View
 {
     /// <summary>
     /// 回营地时：全部渔获同时飞到天空散开，缩小后变成鱼币飞向 Hub 右上角鱼币图标。
+    /// 飞出的钩、鱼、数字从预制体模板克隆，播完销毁。
     /// </summary>
     public sealed class CampRewardPresentationView : MonoBehaviour
     {
         public const string NodeName = "CampRewardPresentation";
+        public const string PrefabPath = "Assets/Prefabs/UI/CampRewardPresentation.prefab";
+        public const string PrefabResourcePath = "UI/CampRewardPresentation";
         public const string FishCoinSpritePath = "Assets/Art/UI/IconFishCoin.png";
         public const string ShellSpritePath = "Assets/Art/UI/IconShell.png";
 
@@ -25,6 +31,9 @@ namespace IceFishing.View
         const float SpawnAnchorY = 0.2f;
         const float SkyAnchorY = 0.72f;
 
+        [SerializeField] Image _imageTemplate;
+        [SerializeField] Text _labelTemplate;
+
         RectTransform _root;
         Canvas _canvas;
         bool _playing;
@@ -34,7 +43,7 @@ namespace IceFishing.View
             get { return _playing; }
         }
 
-        public static CampRewardPresentationView Ensure(Transform canvasRoot)
+        public static CampRewardPresentationView InstantiateOn(Transform canvasRoot)
         {
             if (canvasRoot == null)
             {
@@ -47,11 +56,30 @@ namespace IceFishing.View
                 return existing.GetComponent<CampRewardPresentationView>();
             }
 
-            var go = new GameObject(NodeName, typeof(RectTransform), typeof(CampRewardPresentationView));
-            go.transform.SetParent(canvasRoot, false);
-            var rt = go.GetComponent<RectTransform>();
+            var prefab = LoadPrefab();
+            if (prefab == null)
+            {
+                Debug.LogError("CampRewardPresentation prefab missing. Expected " + PrefabPath);
+                return null;
+            }
+
+            var instance = Instantiate(prefab, canvasRoot, false);
+            instance.name = NodeName;
+            var rt = instance.GetComponent<RectTransform>();
             Stretch(rt);
-            return go.GetComponent<CampRewardPresentationView>();
+            return instance.GetComponent<CampRewardPresentationView>();
+        }
+
+        public static GameObject LoadPrefab()
+        {
+#if UNITY_EDITOR
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (asset != null)
+            {
+                return asset;
+            }
+#endif
+            return Resources.Load<GameObject>(PrefabResourcePath);
         }
 
         void Awake()
@@ -59,6 +87,7 @@ namespace IceFishing.View
             _root = transform as RectTransform;
             _canvas = GetComponentInParent<Canvas>();
             Stretch(_root);
+            HideTemplates();
         }
 
         public void Play(
@@ -122,7 +151,7 @@ namespace IceFishing.View
 
         IEnumerator PullLineRoutine()
         {
-            var hook = CreateImage("PullHook", Color.white, 72f);
+            var hook = SpawnImage("PullHook", Color.white, 72f);
             if (hook == null)
             {
                 yield break;
@@ -178,7 +207,12 @@ namespace IceFishing.View
             {
                 var def = caughtFish[i];
                 var size = FishUiSize(def);
-                var fish = CreateImage("ThrowFish", Color.white, size);
+                var fish = SpawnImage("ThrowFish", Color.white, size);
+                if (fish == null)
+                {
+                    continue;
+                }
+
                 var sprite = ResolveFishSprite(def);
                 if (sprite != null)
                 {
@@ -256,7 +290,11 @@ namespace IceFishing.View
                 item.Rt.localRotation = Quaternion.identity;
                 if (item.Reward > 0)
                 {
-                    var label = CreateLabel("CoinLabel", "+" + item.Reward, font, 32);
+                    var label = SpawnLabel("CoinLabel", "+" + item.Reward, font, 32);
+                    if (label == null)
+                    {
+                        continue;
+                    }
                     label.rectTransform.anchoredPosition = item.Rt.anchoredPosition + new Vector2(36f, 6f);
                     labels.Add(label);
                 }
@@ -413,39 +451,52 @@ namespace IceFishing.View
             return local;
         }
 
-        Image CreateImage(string name, Color color, float size)
+        Image SpawnImage(string name, Color color, float size)
         {
-            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(_root, false);
-            var image = go.GetComponent<Image>();
-            image.raycastTarget = false;
+            if (_imageTemplate == null || _root == null)
+            {
+                return null;
+            }
+
+            var image = Instantiate(_imageTemplate, _root, false);
+            image.gameObject.SetActive(true);
+            image.gameObject.name = name;
             image.color = color;
-            var rt = image.rectTransform;
-            rt.sizeDelta = new Vector2(size, size);
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
+            image.rectTransform.sizeDelta = new Vector2(size, size);
             return image;
         }
 
-        Text CreateLabel(string name, string text, Font font, int fontSize)
+        Text SpawnLabel(string name, string text, Font font, int fontSize)
         {
-            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.transform.SetParent(_root, false);
-            var label = go.GetComponent<Text>();
-            label.raycastTarget = false;
-            label.font = font;
+            if (_labelTemplate == null || _root == null)
+            {
+                return null;
+            }
+
+            var label = Instantiate(_labelTemplate, _root, false);
+            label.gameObject.SetActive(true);
+            label.gameObject.name = name;
+            if (font != null)
+            {
+                label.font = font;
+            }
+
             label.fontSize = fontSize;
-            label.alignment = TextAnchor.MiddleLeft;
-            label.color = Color.white;
             label.text = text;
-            var outline = go.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.65f);
-            outline.effectDistance = new Vector2(1.5f, -1.5f);
-            var rt = label.rectTransform;
-            rt.sizeDelta = new Vector2(160f, 48f);
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0f, 0.5f);
             return label;
+        }
+
+        void HideTemplates()
+        {
+            if (_imageTemplate != null)
+            {
+                _imageTemplate.gameObject.SetActive(false);
+            }
+
+            if (_labelTemplate != null)
+            {
+                _labelTemplate.gameObject.SetActive(false);
+            }
         }
 
         static Sprite ResolveFishSprite(FishDefinition definition)
@@ -477,8 +528,20 @@ namespace IceFishing.View
 
             for (var i = _root.childCount - 1; i >= 0; i--)
             {
-                Destroy(_root.GetChild(i).gameObject);
+                var child = _root.GetChild(i);
+                if (IsTemplate(child))
+                {
+                    continue;
+                }
+
+                Destroy(child.gameObject);
             }
+        }
+
+        bool IsTemplate(Transform child)
+        {
+            return (_imageTemplate != null && child == _imageTemplate.transform)
+                || (_labelTemplate != null && child == _labelTemplate.transform);
         }
 
         static void Stretch(RectTransform rt)

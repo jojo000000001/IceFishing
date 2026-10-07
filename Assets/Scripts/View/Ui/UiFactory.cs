@@ -24,15 +24,6 @@ namespace IceFishing.View
             public SettleView Settle;
         }
 
-        public struct HudSprites
-        {
-            public Sprite Pause;
-            public Sprite Pill;
-            public Sprite Haul;
-            public Sprite Protection;
-            public Sprite Depth;
-        }
-
         public static Font ResolveFont()
         {
             if (_font != null)
@@ -59,22 +50,26 @@ namespace IceFishing.View
         public static BuiltUi Build(Transform canvas, HubView hub = null, FishingHudView hud = null)
         {
             var built = new BuiltUi();
-            built.Hub = hub != null ? hub : HubUiBuilder.BuildHub(canvas);
-            if (built.Hub.transform.parent != canvas)
+            built.Hub = hub != null ? hub : HubView.InstantiateOn(canvas);
+            if (built.Hub != null && built.Hub.transform.parent != canvas)
             {
                 built.Hub.transform.SetParent(canvas, false);
             }
 
-            built.Hud = hud != null ? hud : FishingHudUiBuilder.BuildHud(canvas);
-            if (built.Hud.transform.parent != canvas)
+            built.Hud = hud != null ? hud : FishingHudView.InstantiateOn(canvas);
+            if (built.Hud != null && built.Hud.transform.parent != canvas)
             {
                 built.Hud.transform.SetParent(canvas, false);
             }
 
             built.Pause = PauseUiBuilder.Build(canvas);
             built.Overlay = OverlayUiBuilder.Build(canvas);
-            built.Settle = SettleUiBuilder.Build(canvas);
-            built.Hud.gameObject.SetActive(false);
+            built.Settle = SettleView.InstantiateOn(canvas);
+            if (built.Hud != null)
+            {
+                built.Hud.gameObject.SetActive(false);
+            }
+
             built.Pause.gameObject.SetActive(false);
             built.Overlay.gameObject.SetActive(false);
             if (built.Settle != null)
@@ -82,8 +77,15 @@ namespace IceFishing.View
                 built.Settle.gameObject.SetActive(false);
             }
 
-            built.Hub.transform.SetSiblingIndex(0);
-            built.Hud.transform.SetSiblingIndex(1);
+            if (built.Hub != null)
+            {
+                built.Hub.transform.SetSiblingIndex(0);
+            }
+            if (built.Hud != null)
+            {
+                built.Hud.transform.SetSiblingIndex(1);
+            }
+
             built.Pause.transform.SetSiblingIndex(2);
             built.Overlay.transform.SetSiblingIndex(3);
             if (built.Settle != null)

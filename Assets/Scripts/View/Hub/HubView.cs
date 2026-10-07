@@ -3,16 +3,23 @@ using System.Collections;
 using IceFishing.Model;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace IceFishing.View
 {
     /// <summary>
     /// 营地界面。只刷新显示与转发按钮事件，不消耗饵料、不改渔具。
-    /// Prefab 预览和场景共用 1080×2160 HubLayout，按父画布等比缩放。
+    /// 布局来自预制体；Prefab 预览和场景共用 1080×2160 HubLayout。
     /// </summary>
     [ExecuteAlways]
     public sealed class HubView : MonoBehaviour
     {
+        public const string NodeName = "HubView";
+        public const string PrefabPath = "Assets/Prefabs/UI/HubView.prefab";
+        public const string PrefabResourcePath = "UI/HubView";
+
         [SerializeField] Text _baitText;
         [SerializeField] Text _tokenText;
         [SerializeField] Text _fishCoinCountText;
@@ -70,27 +77,47 @@ namespace IceFishing.View
         public event Action CollectionClicked;
         public event Action SettingsClicked;
 
-        public void Configure(
-            Text baitText,
-            Text tokenText,
-            Text regenText,
-            Button startButton,
-            Button gearButton,
-            Button collectionButton,
-            Button settingsButton,
-            RectTransform layout = null)
+        public static HubView InstantiateOn(Transform canvas)
         {
-            _baitText = baitText;
-            _tokenText = tokenText;
-            _regenText = regenText;
-            _startButton = startButton;
-            _gearButton = gearButton;
-            _collectionButton = collectionButton;
-            _settingsButton = settingsButton;
-            _layout = layout;
-            Wire();
-            ApplyStartButtonArt();
-            FitLayout();
+            if (canvas == null)
+            {
+                return null;
+            }
+
+            var existing = canvas.Find(NodeName);
+            if (existing != null)
+            {
+                return existing.GetComponent<HubView>();
+            }
+
+            var prefab = LoadPrefab();
+            if (prefab == null)
+            {
+                Debug.LogError("HubView prefab missing. Expected " + PrefabPath);
+                return null;
+            }
+
+            var instance = Instantiate(prefab, canvas, false);
+            instance.name = NodeName;
+            var rt = instance.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                UiFactory.Stretch(rt);
+            }
+
+            return instance.GetComponent<HubView>();
+        }
+
+        public static GameObject LoadPrefab()
+        {
+#if UNITY_EDITOR
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (asset != null)
+            {
+                return asset;
+            }
+#endif
+            return Resources.Load<GameObject>(PrefabResourcePath);
         }
 
         void Awake()
@@ -427,14 +454,6 @@ namespace IceFishing.View
 
         void EnsureCurrencyBar()
         {
-            if (_layout == null)
-            {
-                return;
-            }
-
-            HubUiBuilder.EnsureHubCurrencyBar(_layout);
-            var bar = _layout.Find("CurrencyBar") as RectTransform;
-            HubUiBuilder.ApplyHubCurrencyBarLayout(bar);
             BindCurrencyRefs();
             if (_tokenText != null && _fishCoinCountText != null)
             {
@@ -446,6 +465,11 @@ namespace IceFishing.View
         {
             if (_layout == null)
             {
+                _layout = transform.Find("HubLayout") as RectTransform;
+            }
+
+            if (_layout == null)
+            {
                 return;
             }
 
@@ -455,18 +479,19 @@ namespace IceFishing.View
                 return;
             }
 
-            _fishCoinIcon = bar.Find("FishCoinRow/Icon")?.GetComponent<Image>();
-            _fishCoinCountText = bar.Find("FishCoinRow/Count")?.GetComponent<Text>();
-            _shellCountText = bar.Find("ShellRow/Count")?.GetComponent<Text>();
-            if (_fishCoinIcon != null && _fishCoinIcon.sprite == null)
+            if (_fishCoinIcon == null)
             {
-                _fishCoinIcon.sprite = CampUiSprites.FishCoin;
+                _fishCoinIcon = bar.Find("FishCoinRow/Icon")?.GetComponent<Image>();
             }
 
-            var shellIcon = bar.Find("ShellRow/Icon")?.GetComponent<Image>();
-            if (shellIcon != null && shellIcon.sprite == null)
+            if (_fishCoinCountText == null)
             {
-                shellIcon.sprite = CampUiSprites.Shell;
+                _fishCoinCountText = bar.Find("FishCoinRow/Count")?.GetComponent<Text>();
+            }
+
+            if (_shellCountText == null)
+            {
+                _shellCountText = bar.Find("ShellRow/Count")?.GetComponent<Text>();
             }
         }
 
@@ -481,11 +506,7 @@ namespace IceFishing.View
                 }
             }
 
-            if (_campBackdrop == null)
-            {
-                _campBackdrop = HubUiBuilder.CreateHubCampBackdrop(transform as RectTransform, _campMap);
-            }
-            else if (_campMap != null && _campBackdrop.sprite != _campMap)
+            if (_campBackdrop != null && _campMap != null && _campBackdrop.sprite != _campMap)
             {
                 HubUiBuilder.ApplyHubCampBackdrop(_campBackdrop, _campMap);
             }
@@ -587,13 +608,33 @@ namespace IceFishing.View
             }
 
             var rig = EnsureRig();
+            if (rig == null)
+            {
+                return;
+            }
+
             var body = EnsurePart(rig, "FisherBody");
+            if (body == null)
+            {
+                return;
+            }
+
             body.sprite = _fisherBody;
             body.enabled = true;
             Stretch(body.rectTransform);
             var bone = EnsureGripBone(rig);
+            if (bone == null)
+            {
+                return;
+            }
+
             bone.localEulerAngles = new Vector3(0f, 0f, angle);
             var grip = EnsurePart(bone, "Grip");
+            if (grip == null)
+            {
+                return;
+            }
+
             grip.sprite = _fisherGrip;
             grip.enabled = true;
             PlaceGrip(grip.rectTransform, rig);
@@ -653,25 +694,15 @@ namespace IceFishing.View
         RectTransform EnsureRig()
         {
             var found = FindFisherRig();
-            RectTransform rig;
             if (found == null)
             {
-                var go = new GameObject("FisherRig", typeof(RectTransform));
-                rig = go.GetComponent<RectTransform>();
-                go.transform.SetParent(transform, false);
-                var backdrop = transform.Find("CampBackdrop");
-                if (backdrop != null)
-                {
-                    rig.SetSiblingIndex(backdrop.GetSiblingIndex() + 1);
-                }
+                return null;
             }
-            else
+
+            var rig = found;
+            if (rig.parent != transform)
             {
-                rig = found;
-                if (rig.parent != transform)
-                {
-                    rig.SetParent(transform, false);
-                }
+                rig.SetParent(transform, false);
             }
 
             for (var i = transform.childCount - 1; i >= 0; i--)
@@ -756,9 +787,7 @@ namespace IceFishing.View
 
             if (_gripBone == null)
             {
-                var go = new GameObject("GripBone", typeof(RectTransform));
-                _gripBone = go.GetComponent<RectTransform>();
-                go.transform.SetParent(rig, false);
+                return null;
             }
 
             _gripBone.anchorMin = _gripOnBody;
@@ -772,17 +801,21 @@ namespace IceFishing.View
 
         static Image EnsurePart(RectTransform parent, string partName)
         {
+            if (parent == null)
+            {
+                return null;
+            }
+
             var found = parent.Find(partName);
-            Image image;
             if (found == null)
             {
-                var go = new GameObject(partName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                image = go.GetComponent<Image>();
-                go.transform.SetParent(parent, false);
+                return null;
             }
-            else
+
+            var image = found.GetComponent<Image>();
+            if (image == null)
             {
-                image = found.GetComponent<Image>();
+                return null;
             }
 
             image.raycastTarget = false;
@@ -824,6 +857,11 @@ namespace IceFishing.View
                 return;
             }
             var root = EnsureLineRoot(grip);
+            if (root == null)
+            {
+                return;
+            }
+
             var bend = _gripBone != null ? _gripBone.localEulerAngles.z : 0f;
             if (bend > 180f)
             {
@@ -866,6 +904,11 @@ namespace IceFishing.View
                 var a = Curve(p0, p1, p2, p3, i / (float)count);
                 var b = Curve(p0, p1, p2, p3, (i + 1) / (float)count);
                 var seg = EnsureSegment(root, i);
+                if (seg == null)
+                {
+                    continue;
+                }
+
                 seg.color = Color.black;
                 if (sprite != null && seg.sprite != sprite)
                 {
@@ -931,16 +974,15 @@ namespace IceFishing.View
         void PlaceHookOnLine(RectTransform root, Vector2 tip, float thickness)
         {
             var found = root.Find("LineHook");
-            Image hook;
             if (found == null)
             {
-                var go = new GameObject("LineHook", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                hook = go.GetComponent<Image>();
-                go.transform.SetParent(root, false);
+                return;
             }
-            else
+
+            var hook = found.GetComponent<Image>();
+            if (hook == null)
             {
-                hook = found.GetComponent<Image>();
+                return;
             }
 
             hook.raycastTarget = false;
@@ -1020,21 +1062,21 @@ namespace IceFishing.View
                 }
             }
 
-            RectTransform root;
             if (found == null)
             {
-                var go = new GameObject("FisherLine", typeof(RectTransform));
-                root = go.GetComponent<RectTransform>();
-                go.transform.SetParent(grip, false);
+                return null;
             }
-            else
+
+            var root = found as RectTransform;
+            if (root == null)
             {
-                root = found as RectTransform;
-                var bar = found.GetComponent<Image>();
-                if (bar != null)
-                {
-                    bar.enabled = false;
-                }
+                return null;
+            }
+
+            var bar = found.GetComponent<Image>();
+            if (bar != null)
+            {
+                bar.enabled = false;
             }
 
             _lineRoot = root;
@@ -1080,16 +1122,15 @@ namespace IceFishing.View
         {
             var partName = "Seg" + index;
             var found = root.Find(partName);
-            Image image;
             if (found == null)
             {
-                var go = new GameObject(partName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                image = go.GetComponent<Image>();
-                go.transform.SetParent(root, false);
+                return null;
             }
-            else
+
+            var image = found.GetComponent<Image>();
+            if (image == null)
             {
-                image = found.GetComponent<Image>();
+                return null;
             }
 
             image.raycastTarget = false;

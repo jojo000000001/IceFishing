@@ -195,6 +195,11 @@ namespace IceFishing.EditorTools
                 prefab = BakeHubPrefab();
             }
 
+            if (prefab == null)
+            {
+                return null;
+            }
+
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, canvas);
             instance.SetActive(true);
             return instance.GetComponent<HubView>();
@@ -207,30 +212,11 @@ namespace IceFishing.EditorTools
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(HubPrefabPath);
             if (existing != null)
             {
-                var root = PrefabUtility.LoadPrefabContents(HubPrefabPath);
-                try
-                {
-                    HubUiBuilder.PopulateHub(root.transform);
-                    PrefabUtility.SaveAsPrefabAsset(root, HubPrefabPath);
-                }
-                finally
-                {
-                    PrefabUtility.UnloadPrefabContents(root);
-                }
-
-                return AssetDatabase.LoadAssetAtPath<GameObject>(HubPrefabPath);
+                return existing;
             }
 
-            var bakeRoot = new GameObject("HubPrefabBake", typeof(RectTransform));
-            try
-            {
-                var hub = HubUiBuilder.BuildHub(bakeRoot.transform);
-                return PrefabUtility.SaveAsPrefabAsset(hub.gameObject, HubPrefabPath);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(bakeRoot);
-            }
+            Debug.LogError("HubView prefab missing at " + HubPrefabPath + ". Layout lives in the prefab; do not generate it from code.");
+            return null;
         }
 
         static void ReplaceHubInOpenScene()
@@ -378,7 +364,11 @@ namespace IceFishing.EditorTools
                 var root = PrefabUtility.LoadPrefabContents(SettlePrefabPath);
                 try
                 {
-                    SettleUiBuilder.BindFromHierarchy(root.transform);
+                    var settle = root.GetComponent<SettleView>();
+                    if (settle != null)
+                    {
+                        settle.EnsureFishCardSlots();
+                    }
                     EnsureSettleFishCardSlots(root.transform);
                     PrefabUtility.SaveAsPrefabAsset(root, SettlePrefabPath);
                 }
@@ -712,6 +702,11 @@ namespace IceFishing.EditorTools
                 prefab = BakeHudPrefab();
             }
 
+            if (prefab == null)
+            {
+                return null;
+            }
+
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, canvas);
             instance.SetActive(false);
             return instance.GetComponent<FishingHudView>();
@@ -721,17 +716,18 @@ namespace IceFishing.EditorTools
         {
             EnsureFolder("Assets/Prefabs");
             EnsureFolder("Assets/Prefabs/UI");
-            EnsureFolder(HudArtFolder);
-            ImportHudSprites();
-            var statsProfile = FishingHudStatsAssetBuilder.Ensure();
-            var sprites = LoadHudSprites();
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
             if (existing != null)
             {
                 var root = PrefabUtility.LoadPrefabContents(HudPrefabPath);
                 try
                 {
-                    FishingHudUiBuilder.PopulateHud(root.transform, sprites, statsProfile);
+                    var hud = root.GetComponent<FishingHudView>();
+                    if (hud != null)
+                    {
+                        hud.BindPrefabRefs();
+                    }
+
                     PrefabUtility.SaveAsPrefabAsset(root, HudPrefabPath);
                 }
                 finally
@@ -742,28 +738,8 @@ namespace IceFishing.EditorTools
                 return AssetDatabase.LoadAssetAtPath<GameObject>(HudPrefabPath);
             }
 
-            var bakeRoot = new GameObject("HudPrefabBake", typeof(RectTransform));
-            try
-            {
-                var hud = FishingHudUiBuilder.BuildHud(bakeRoot.transform, sprites);
-                return PrefabUtility.SaveAsPrefabAsset(hud.gameObject, HudPrefabPath);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(bakeRoot);
-            }
-        }
-
-        static UiFactory.HudSprites LoadHudSprites()
-        {
-            return new UiFactory.HudSprites
-            {
-                Pause = AssetDatabase.LoadAssetAtPath<Sprite>(HudArtFolder + "/HudPause.png"),
-                Pill = AssetDatabase.LoadAssetAtPath<Sprite>(HudArtFolder + "/HudPill.png"),
-                Haul = AssetDatabase.LoadAssetAtPath<Sprite>(HudArtFolder + "/HudIconReel.png"),
-                Protection = AssetDatabase.LoadAssetAtPath<Sprite>(HudArtFolder + "/HudIconHook.png"),
-                Depth = AssetDatabase.LoadAssetAtPath<Sprite>(HudArtFolder + "/HudIconLine.png")
-            };
+            Debug.LogError("FishingHudView prefab missing at " + HudPrefabPath + ". Layout lives in the prefab; do not generate it from code.");
+            return null;
         }
 
         static void ImportHudSprites()

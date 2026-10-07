@@ -791,7 +791,7 @@ namespace IceFishing.Controller
 
             if (_settleView == null)
             {
-                _settleView = SettleUiBuilder.Build(canvas.transform);
+                _settleView = SettleView.InstantiateOn(canvas.transform);
             }
 
             if (_settleView != null)
@@ -840,7 +840,7 @@ namespace IceFishing.Controller
                 return;
             }
 
-            _campReward = CampRewardPresentationView.Ensure(canvas.transform);
+            _campReward = CampRewardPresentationView.InstantiateOn(canvas.transform);
         }
     }
 }

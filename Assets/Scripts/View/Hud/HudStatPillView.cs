@@ -22,14 +22,6 @@ namespace IceFishing.View
             _definition = definition;
         }
 
-        public void Configure(FishingHudStatDefinition definition, Text value, Image icon, Image pill)
-        {
-            SetDefinition(definition);
-            _valueText = value;
-            _iconImage = icon;
-            _pillImage = pill;
-        }
-
         public void ResolveReferences()
         {
             if (_valueText == null)

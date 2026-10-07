@@ -3,16 +3,23 @@ using IceFishing.Core;
 using IceFishing.Model;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace IceFishing.View
 {
     /// <summary>
     /// 钓鱼 HUD。只根据 CastSession 刷新文字，不推进深度、不处理碰撞。
-    /// Prefab 预览和场景共用 1080×2160 HudLayout，按父画布等比缩放。
+    /// 布局来自预制体；Prefab 预览和场景共用 1080×2160 HudLayout。
     /// </summary>
     [ExecuteAlways]
     public sealed class FishingHudView : MonoBehaviour
     {
+        public const string NodeName = "FishingHudView";
+        public const string PrefabPath = "Assets/Prefabs/UI/FishingHudView.prefab";
+        public const string PrefabResourcePath = "UI/FishingHudView";
+
         [SerializeField] Text _phaseText;
         [SerializeField] Button _pauseButton;
         [SerializeField] RectTransform _layout;
@@ -26,26 +33,64 @@ namespace IceFishing.View
 
         public FishingHudStatsDefinition StatsProfile => _statsProfile;
 
-        public void Configure(
-            Text phase,
-            HudStatPillView[] statPills,
-            FishingHudStatsDefinition statsProfile,
-            Button pause,
-            RectTransform layout)
+        public static FishingHudView InstantiateOn(Transform canvas)
         {
-            _phaseText = phase;
-            _statPills = statPills;
-            _statsProfile = statsProfile;
-            _pauseButton = pause;
-            _layout = layout;
-            Wire();
-            ApplyStatPresentation();
-            FitLayout();
+            if (canvas == null)
+            {
+                return null;
+            }
+
+            var existing = canvas.Find(NodeName);
+            if (existing != null)
+            {
+                return existing.GetComponent<FishingHudView>();
+            }
+
+            var prefab = LoadPrefab();
+            if (prefab == null)
+            {
+                Debug.LogError("FishingHudView prefab missing. Expected " + PrefabPath);
+                return null;
+            }
+
+            var instance = Instantiate(prefab, canvas, false);
+            instance.name = NodeName;
+            var rt = instance.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                UiFactory.Stretch(rt);
+            }
+
+            return instance.GetComponent<FishingHudView>();
+        }
+
+        public static GameObject LoadPrefab()
+        {
+#if UNITY_EDITOR
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (asset != null)
+            {
+                return asset;
+            }
+#endif
+            return Resources.Load<GameObject>(PrefabResourcePath);
+        }
+
+        [ContextMenu("Bind Prefab Refs")]
+        public void BindPrefabRefs()
+        {
+            ResolveMissingRefs();
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                EditorUtility.SetDirty(this);
+            }
+#endif
         }
 
         void Awake()
         {
-            ResolveStatPills();
+            ResolveMissingRefs();
             Wire();
             ApplyStatPresentation();
             FitLayout();
@@ -53,6 +98,7 @@ namespace IceFishing.View
 
         void OnEnable()
         {
+            ResolveMissingRefs();
             ApplyStatPresentation();
             FitLayout();
         }
@@ -177,6 +223,34 @@ namespace IceFishing.View
                     _statPills[i].BindValue(session, font);
                 }
             }
+        }
+
+        void ResolveMissingRefs()
+        {
+            if (_layout == null)
+            {
+                _layout = transform.Find("HudLayout") as RectTransform;
+            }
+
+            if (_pauseButton == null && _layout != null)
+            {
+                _pauseButton = _layout.Find("PauseButton")?.GetComponent<Button>();
+            }
+
+            if (_phaseText == null && _layout != null)
+            {
+                _phaseText = _layout.Find("Phase")?.GetComponent<Text>();
+            }
+
+#if UNITY_EDITOR
+            if (_statsProfile == null)
+            {
+                _statsProfile = AssetDatabase.LoadAssetAtPath<FishingHudStatsDefinition>(
+                    FishingHudStatsDefinition.DefaultAssetPath);
+            }
+#endif
+
+            ResolveStatPills();
         }
 
         void ResolveStatPills()
