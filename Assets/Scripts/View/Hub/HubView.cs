@@ -20,16 +20,10 @@ namespace IceFishing.View
         public const string PrefabPath = "Assets/Prefabs/UI/HubView.prefab";
         public const string PrefabResourcePath = "UI/HubView";
 
-        [SerializeField] Text _baitText;
-        [SerializeField] Text _tokenText;
         [SerializeField] Text _fishCoinCountText;
         [SerializeField] Text _shellCountText;
         [SerializeField] Image _fishCoinIcon;
-        [SerializeField] Text _regenText;
         [SerializeField] Button _startButton;
-        [SerializeField] Button _gearButton;
-        [SerializeField] Button _collectionButton;
-        [SerializeField] Button _settingsButton;
         [SerializeField] RectTransform _layout;
         [SerializeField] Image _campBackdrop;
         [SerializeField] Sprite _campMap;
@@ -73,9 +67,6 @@ namespace IceFishing.View
         }
 
         public event Action StartClicked;
-        public event Action GearClicked;
-        public event Action CollectionClicked;
-        public event Action SettingsClicked;
 
         public static HubView InstantiateOn(Transform canvas)
         {
@@ -122,16 +113,15 @@ namespace IceFishing.View
 
         void Awake()
         {
+            BindCurrencyRefs();
             Wire();
             EnsureCampBackdrop();
-            ApplyStartButtonArt();
             FitLayout();
         }
 
         void OnEnable()
         {
             EnsureCampBackdrop();
-            ApplyStartButtonArt();
             FitLayout();
         }
 
@@ -183,23 +173,8 @@ namespace IceFishing.View
             gameObject.SetActive(true);
             SetFade(1f);
             SetInteractable(true);
-            ApplyStartButtonArt();
             SetSinkPixels(0f);
             FitLayout();
-        }
-
-        void ApplyStartButtonArt()
-        {
-            if (_startButton == null)
-            {
-                _startButton = transform.Find("HubLayout/StartButton")?.GetComponent<Button>();
-            }
-
-            UiFactory.StyleSpriteSwapButton(
-                _startButton,
-                PauseUiSprites.HubStart,
-                PauseUiSprites.HubStartPressed,
-                false);
         }
 
         public void SetLineHookVisible(bool visible)
@@ -442,22 +417,12 @@ namespace IceFishing.View
             EnsureCampBackdrop();
             HubUiBuilder.EnsureCampLetterboxFill(transform as RectTransform);
             UiFactory.FitFixedLayout(transform as RectTransform, ref _layout, "HubLayout", ref _fitting);
-            EnsureCurrencyBar();
             HubUiBuilder.FitCampBackdrop(_campBackdrop, transform as RectTransform);
             OrderHubStage();
             FitFisherToStage(FindFisherRig());
             if (!_casting)
             {
                 ShowGrip(0f);
-            }
-        }
-
-        void EnsureCurrencyBar()
-        {
-            BindCurrencyRefs();
-            if (_tokenText != null && _fishCoinCountText != null)
-            {
-                _tokenText.gameObject.SetActive(false);
             }
         }
 
@@ -523,12 +488,7 @@ namespace IceFishing.View
         {
             get
             {
-                if (_fishCoinIcon != null)
-                {
-                    return _fishCoinIcon.rectTransform;
-                }
-
-                return _tokenText != null ? _tokenText.rectTransform : null;
+                return _fishCoinIcon != null ? _fishCoinIcon.rectTransform : null;
             }
         }
 
@@ -540,28 +500,14 @@ namespace IceFishing.View
             }
 
             ApplyFont();
-            if (_baitText != null)
-            {
-                _baitText.gameObject.SetActive(false);
-            }
-
             if (_fishCoinCountText != null)
             {
                 _fishCoinCountText.text = profile.Tokens.ToString();
-            }
-            else if (_tokenText != null)
-            {
-                _tokenText.text = "纪念币 " + profile.Tokens;
             }
 
             if (_shellCountText != null)
             {
                 _shellCountText.text = profile.Shells.ToString();
-            }
-
-            if (_regenText != null)
-            {
-                _regenText.gameObject.SetActive(false);
             }
         }
 
@@ -1180,32 +1126,14 @@ namespace IceFishing.View
             }
 
             _startButton.onClick.AddListener(() => StartClicked?.Invoke());
-            if (_gearButton != null)
-            {
-                _gearButton.onClick.AddListener(() => GearClicked?.Invoke());
-            }
-
-            if (_collectionButton != null)
-            {
-                _collectionButton.onClick.AddListener(() => CollectionClicked?.Invoke());
-            }
-
-            if (_settingsButton != null)
-            {
-                _settingsButton.onClick.AddListener(() => SettingsClicked?.Invoke());
-            }
-
             _wired = true;
         }
 
         void ApplyFont()
         {
             var font = UiFactory.ResolveFont();
-            SetFont(_baitText, font);
-            SetFont(_tokenText, font);
             SetFont(_fishCoinCountText, font);
             SetFont(_shellCountText, font);
-            SetFont(_regenText, font);
         }
 
         static void SetFont(Text text, Font font)

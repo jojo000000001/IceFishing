@@ -110,15 +110,22 @@ namespace IceFishing.EditorTools
             var hook = worldRoot.transform.Find("Hook");
             if (hook == null)
             {
-                var hooks = worldRoot.GetComponentsInChildren<Transform>(true);
-                for (var i = 0; i < hooks.Length; i++)
+                hook = worldRoot.transform.Find("FishingHook");
+            }
+
+            if (hook == null)
+            {
+                var visual = worldRoot.GetComponentInChildren<FishingHookVisual>(true);
+                if (visual != null)
                 {
-                    if (hooks[i] != null && hooks[i].name == "Hook")
-                    {
-                        hook = hooks[i];
-                        break;
-                    }
+                    hook = visual.transform;
                 }
+            }
+
+            var hookPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IceFishingHookPrefab.PrefabPath);
+            if (hook == null && hookPrefab != null)
+            {
+                hook = IceFishingHookPrefab.PlaceUnderWorld(worldRoot.transform, hookPrefab);
             }
 
             if (hook != null)
@@ -131,7 +138,12 @@ namespace IceFishing.EditorTools
                 }
 
                 visual.Apply();
-                HookShieldSetup.EnsureChild(hook);
+                var shield = hook.Find("HookShield");
+                if (shield != null)
+                {
+                    HookShieldSetup.ApplyLayout(hook, shield);
+                }
+
                 RemoveDuplicateHookShields(hook);
             }
 
@@ -145,7 +157,6 @@ namespace IceFishing.EditorTools
                     serialized.FindProperty("_line").objectReferenceValue = line;
                 }
 
-                var hookPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(IceFishingHookPrefab.PrefabPath);
                 if (hookPrefab != null)
                 {
                     serialized.FindProperty("_hookPrefab").objectReferenceValue = hookPrefab;

@@ -1333,7 +1333,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &899743709
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1646,8 +1646,6 @@ MonoBehaviour:
   _title: {fileID: 1914210950}
   _body: {fileID: 1814639312}
   _closeButton: {fileID: 395907317}
-  _toggleRoot: {fileID: 899743708}
-  _infiniteBaitToggle: {fileID: 352224850}
 --- !u!224 &1191683479
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2692,6 +2690,10 @@ MonoBehaviour:
   _campBgm: {fileID: 8300000, guid: a4e2286a0ff4a484fa361bf50de6cff9, type: 3}
   _underwaterBgm: {fileID: 8300000, guid: 60aa520a2ae68be4890d786a9ff776a4, type: 3}
   _protectionHitSfx: {fileID: 8300000, guid: 7023fb3059b5bdf42a05ac1700586660, type: 3}
+  _catchSfx: {fileID: 8300000, guid: f699c14a7e0bbce459e265aa0dc5fd51, type: 3}
+  _coinSfx: {fileID: 8300000, guid: 7d4e9c2a1b8f46a3b5e0c9d2f1a8476e, type: 3}
+  _surfaceSfx: {fileID: 8300000, guid: d08785a30553ddd49be9f649ae4f7978, type: 3}
+  _settleSfx: {fileID: 8300000, guid: a8946487da48a644d85ec7a94790e6f3, type: 3}
   _bgmA: {fileID: 1765491214}
   _bgmB: {fileID: 896827320}
   _sfxSource: {fileID: 1794400213}

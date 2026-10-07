@@ -1,15 +1,21 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace IceFishing.View
 {
     /// <summary>
     /// 首次开局教程卡：展示框、关闭钮和字幕。时间轴里可点右上角退出回营地。
+    /// 布局来自预制体。
     /// </summary>
     public sealed class CastTutorialView : MonoBehaviour
     {
         public const string NodeName = "CastTutorialView";
+        public const string PrefabPath = "Assets/Prefabs/UI/CastTutorialView.prefab";
+        public const string PrefabResourcePath = "UI/CastTutorialView";
 
         public const string CaptionAvoidFish =
             "鱼钩下潜时按住鼠标左键可以左右移动，下潜至极致前不要碰到鱼。";
@@ -18,6 +24,49 @@ namespace IceFishing.View
             "鱼钩向上回收过程，尽量捕获珍稀鱼类确保收益最大化。";
 
         const string DefaultCaption = CaptionAvoidFish;
+
+        public static CastTutorialView InstantiateOn(Transform canvas)
+        {
+            if (canvas == null)
+            {
+                return null;
+            }
+
+            var existing = canvas.Find(NodeName);
+            if (existing != null)
+            {
+                return existing.GetComponent<CastTutorialView>();
+            }
+
+            var prefab = LoadPrefab();
+            if (prefab == null)
+            {
+                Debug.LogError("CastTutorialView prefab missing. Expected " + PrefabPath);
+                return null;
+            }
+
+            var instance = Instantiate(prefab, canvas, false);
+            instance.name = NodeName;
+            var rt = instance.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                UiFactory.Stretch(rt);
+            }
+
+            return instance.GetComponent<CastTutorialView>();
+        }
+
+        public static GameObject LoadPrefab()
+        {
+#if UNITY_EDITOR
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (asset != null)
+            {
+                return asset;
+            }
+#endif
+            return Resources.Load<GameObject>(PrefabResourcePath);
+        }
 
         [SerializeField] RectTransform _card;
         [SerializeField] RectTransform _window;

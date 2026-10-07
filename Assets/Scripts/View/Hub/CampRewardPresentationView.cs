@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using IceFishing.Controller;
 using IceFishing.Model;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,6 +27,7 @@ namespace IceFishing.View
         const float FlyDuration = 0.7f;
         const float SpreadHold = 0.16f;
         const float ShrinkDuration = 0.28f;
+        const float CoinSfxLead = 0.15f;
         const float CoinPopDuration = 0.16f;
         const float CoinFlyDuration = 0.42f;
         const float SpawnAnchorY = 0.2f;
@@ -151,6 +153,7 @@ namespace IceFishing.View
 
         IEnumerator PullLineRoutine()
         {
+            MusicController.Ensure().PlaySurface();
             var hook = SpawnImage("PullHook", Color.white, 72f);
             if (hook == null)
             {
@@ -267,6 +270,7 @@ namespace IceFishing.View
             }
 
             elapsed = 0f;
+            var coinSfxPlayed = false;
             while (elapsed < ShrinkDuration)
             {
                 elapsed += Time.deltaTime;
@@ -277,7 +281,18 @@ namespace IceFishing.View
                     items[i].Rt.localScale = Vector3.one * Mathf.Lerp(1f, 0.12f, ease);
                 }
 
+                if (!coinSfxPlayed && items.Count > 0 && elapsed >= ShrinkDuration - CoinSfxLead)
+                {
+                    MusicController.Ensure().PlayCoin();
+                    coinSfxPlayed = true;
+                }
+
                 yield return null;
+            }
+
+            if (!coinSfxPlayed && items.Count > 0)
+            {
+                MusicController.Ensure().PlayCoin();
             }
 
             var labels = new List<Text>(count);

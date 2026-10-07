@@ -19,6 +19,8 @@ namespace IceFishing.EditorTools
         public const string HudPrefabPath = "Assets/Prefabs/UI/FishingHudView.prefab";
         public const string HubPrefabPath = "Assets/Prefabs/UI/HubView.prefab";
         public const string SettlePrefabPath = "Assets/Prefabs/UI/SettleView.prefab";
+        public const string OverlayPrefabPath = "Assets/Prefabs/UI/OverlayView.prefab";
+        public const string PausePrefabPath = "Assets/Prefabs/UI/PausePopupView.prefab";
         public const string TutorialPrefabPath = "Assets/Prefabs/UI/CastTutorialView.prefab";
         public const string UnderwaterPrefabPath = "Assets/Prefabs/World/UnderwaterField.prefab";
         public const string CampPrefabPath = "Assets/Prefabs/World/CampField.prefab";
@@ -139,7 +141,9 @@ namespace IceFishing.EditorTools
 
             var hub = PlaceHubPrefab(canvasObject.transform);
             var hud = PlaceHudPrefab(canvasObject.transform);
-            var ui = UiFactory.Build(canvasObject.transform, hub, hud);
+            var overlay = PlaceOverlayPrefab(canvasObject.transform);
+            var pause = PlacePausePrefab(canvasObject.transform);
+            var ui = UiFactory.Build(canvasObject.transform, hub, hud, overlay, pause);
             var tutorial = PlaceCastTutorialPrefab(canvasObject.transform);
 
             var bootstrap = new GameObject("Bootstrap");
@@ -147,7 +151,11 @@ namespace IceFishing.EditorTools
             music.EditorAssign(
                 AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.CampBgmPath),
                 AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.UnderwaterBgmPath),
-                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.ProtectionHitSfxPath));
+                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.ProtectionHitSfxPath),
+                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.CatchSfxPath),
+                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.CoinSfxPath),
+                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.SurfaceSfxPath),
+                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.SettleSfxPath));
             var app = bootstrap.AddComponent<AppController>();
             app.EditorAssign(ui.Hub, ui.Hud, ui.Pause, ui.Overlay, ui.Settle, world, worldPrefab, tutorial);
 
@@ -179,7 +187,8 @@ namespace IceFishing.EditorTools
 
             if (prefab == null)
             {
-                return CastTutorialUiBuilder.Build(canvas);
+                Debug.LogError("CastTutorialView prefab missing at " + TutorialPrefabPath);
+                return null;
             }
 
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, canvas);
@@ -389,25 +398,14 @@ namespace IceFishing.EditorTools
             EnsureFolder("Assets/Prefabs");
             EnsureFolder("Assets/Prefabs/UI");
             ImportTutorialSprites();
-
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(TutorialPrefabPath);
             if (existing != null)
             {
-                AssetDatabase.DeleteAsset(TutorialPrefabPath);
+                return existing;
             }
 
-            var bakeRoot = new GameObject("TutorialPrefabBake", typeof(RectTransform));
-            try
-            {
-                var tutorial = CastTutorialUiBuilder.Build(bakeRoot.transform);
-                var saved = PrefabUtility.SaveAsPrefabAsset(tutorial.gameObject, TutorialPrefabPath);
-                Debug.Log("Baked CastTutorialView prefab at " + TutorialPrefabPath);
-                return saved;
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(bakeRoot);
-            }
+            Debug.LogError("CastTutorialView prefab missing at " + TutorialPrefabPath + ". Layout lives in the prefab; do not generate it from code.");
+            return null;
         }
 
         static void ImportTutorialSprites()
@@ -739,6 +737,102 @@ namespace IceFishing.EditorTools
             }
 
             Debug.LogError("FishingHudView prefab missing at " + HudPrefabPath + ". Layout lives in the prefab; do not generate it from code.");
+            return null;
+        }
+
+        static OverlayView PlaceOverlayPrefab(Transform canvas)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(OverlayPrefabPath);
+            if (prefab == null)
+            {
+                prefab = BakeOverlayPrefab();
+            }
+
+            if (prefab == null)
+            {
+                return null;
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, canvas);
+            instance.SetActive(false);
+            return instance.GetComponent<OverlayView>();
+        }
+
+        public static GameObject BakeOverlayPrefab()
+        {
+            EnsureFolder("Assets/Prefabs");
+            EnsureFolder("Assets/Prefabs/UI");
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(OverlayPrefabPath);
+            if (existing != null)
+            {
+                var root = PrefabUtility.LoadPrefabContents(OverlayPrefabPath);
+                try
+                {
+                    var overlay = root.GetComponent<OverlayView>();
+                    if (overlay != null)
+                    {
+                        overlay.BindPrefabRefs();
+                    }
+
+                    PrefabUtility.SaveAsPrefabAsset(root, OverlayPrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+
+                return AssetDatabase.LoadAssetAtPath<GameObject>(OverlayPrefabPath);
+            }
+
+            Debug.LogError("OverlayView prefab missing at " + OverlayPrefabPath + ". Layout lives in the prefab; do not generate it from code.");
+            return null;
+        }
+
+        static PausePopupView PlacePausePrefab(Transform canvas)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PausePrefabPath);
+            if (prefab == null)
+            {
+                prefab = BakePausePrefab();
+            }
+
+            if (prefab == null)
+            {
+                return null;
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, canvas);
+            instance.SetActive(false);
+            return instance.GetComponent<PausePopupView>();
+        }
+
+        public static GameObject BakePausePrefab()
+        {
+            EnsureFolder("Assets/Prefabs");
+            EnsureFolder("Assets/Prefabs/UI");
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(PausePrefabPath);
+            if (existing != null)
+            {
+                var root = PrefabUtility.LoadPrefabContents(PausePrefabPath);
+                try
+                {
+                    var pause = root.GetComponent<PausePopupView>();
+                    if (pause != null)
+                    {
+                        pause.BindPrefabRefs();
+                    }
+
+                    PrefabUtility.SaveAsPrefabAsset(root, PausePrefabPath);
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+
+                return AssetDatabase.LoadAssetAtPath<GameObject>(PausePrefabPath);
+            }
+
+            Debug.LogError("PausePopupView prefab missing at " + PausePrefabPath + ". Layout lives in the prefab; do not generate it from code.");
             return null;
         }
 

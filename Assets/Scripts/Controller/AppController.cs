@@ -82,10 +82,8 @@ namespace IceFishing.Controller
             EnsureCastTutorialView();
             _hubController = new HubController(
                 _hubView,
-                _overlayView,
                 _profile,
                 StartFishing,
-                RefreshHub,
                 BeginCastTutorialFromHub);
             _fishingController = new FishingController(_hudView, _pauseView, ReturnToHub);
             WireSettle();
@@ -571,6 +569,7 @@ namespace IceFishing.Controller
             EnsureCampReward();
             if (_campReward == null)
             {
+                MusicController.Ensure().PlaySurface();
                 if (caught.Count > 0)
                 {
                     AddCampRewards(caught);
@@ -730,6 +729,7 @@ namespace IceFishing.Controller
                 return;
             }
 
+            MusicController.Ensure().PlaySettle();
             _settleView.Show(settle);
         }
 
@@ -821,10 +821,13 @@ namespace IceFishing.Controller
 
             if (_castTutorialView == null)
             {
-                _castTutorialView = CastTutorialUiBuilder.Build(canvas.transform);
+                _castTutorialView = CastTutorialView.InstantiateOn(canvas.transform);
             }
 
-            _castTutorialView.gameObject.SetActive(false);
+            if (_castTutorialView != null)
+            {
+                _castTutorialView.gameObject.SetActive(false);
+            }
         }
 
         void EnsureCampReward()

@@ -4,8 +4,7 @@ using UnityEngine.UI;
 namespace IceFishing.View
 {
     /// <summary>
-    /// 共用 UGUI 控件和 1080×2160 布局。各界面层级在对应的 *UiBuilder 里。
-    /// 中文字体走系统字体，避免 TMP 默认字体缺字形。
+    /// 共用 UGUI 缩放、字体和按钮样式。界面层级来自预制体，不在这里生成。
     /// </summary>
     public static class UiFactory
     {
@@ -47,7 +46,12 @@ namespace IceFishing.View
             return _font;
         }
 
-        public static BuiltUi Build(Transform canvas, HubView hub = null, FishingHudView hud = null)
+        public static BuiltUi Build(
+            Transform canvas,
+            HubView hub = null,
+            FishingHudView hud = null,
+            OverlayView overlay = null,
+            PausePopupView pause = null)
         {
             var built = new BuiltUi();
             built.Hub = hub != null ? hub : HubView.InstantiateOn(canvas);
@@ -62,16 +66,34 @@ namespace IceFishing.View
                 built.Hud.transform.SetParent(canvas, false);
             }
 
-            built.Pause = PauseUiBuilder.Build(canvas);
-            built.Overlay = OverlayUiBuilder.Build(canvas);
+            built.Pause = pause != null ? pause : PausePopupView.InstantiateOn(canvas);
+            if (built.Pause != null && built.Pause.transform.parent != canvas)
+            {
+                built.Pause.transform.SetParent(canvas, false);
+            }
+
+            built.Overlay = overlay != null ? overlay : OverlayView.InstantiateOn(canvas);
+            if (built.Overlay != null && built.Overlay.transform.parent != canvas)
+            {
+                built.Overlay.transform.SetParent(canvas, false);
+            }
+
             built.Settle = SettleView.InstantiateOn(canvas);
             if (built.Hud != null)
             {
                 built.Hud.gameObject.SetActive(false);
             }
 
-            built.Pause.gameObject.SetActive(false);
-            built.Overlay.gameObject.SetActive(false);
+            if (built.Pause != null)
+            {
+                built.Pause.gameObject.SetActive(false);
+            }
+
+            if (built.Overlay != null)
+            {
+                built.Overlay.gameObject.SetActive(false);
+            }
+
             if (built.Settle != null)
             {
                 built.Settle.gameObject.SetActive(false);
@@ -86,91 +108,22 @@ namespace IceFishing.View
                 built.Hud.transform.SetSiblingIndex(1);
             }
 
-            built.Pause.transform.SetSiblingIndex(2);
-            built.Overlay.transform.SetSiblingIndex(3);
+            if (built.Pause != null)
+            {
+                built.Pause.transform.SetSiblingIndex(2);
+            }
+
+            if (built.Overlay != null)
+            {
+                built.Overlay.transform.SetSiblingIndex(3);
+            }
+
             if (built.Settle != null)
             {
                 built.Settle.transform.SetSiblingIndex(4);
             }
 
             return built;
-        }
-
-        public static Text CreateText(Transform parent, string name, string content, int size, Color color, TextAnchor anchor)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            var text = go.AddComponent<Text>();
-            text.font = EditorSafeFont();
-            if (text.font == null)
-            {
-                text.font = ResolveFont();
-            }
-            text.text = content;
-            text.fontSize = size;
-            text.color = color;
-            text.alignment = anchor;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.raycastTarget = false;
-            return text;
-        }
-
-        public static Image CreatePanel(Transform parent, string name, Color color)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            var image = go.AddComponent<Image>();
-            image.color = color;
-            image.raycastTarget = true;
-            return image;
-        }
-
-        public static Button CreateButton(Transform parent, string name, string label, Color color, Vector2 size)
-        {
-            var image = CreatePanel(parent, name, color);
-            var rt = image.rectTransform;
-            rt.sizeDelta = size;
-
-            var button = image.gameObject.AddComponent<Button>();
-            var colors = button.colors;
-            colors.highlightedColor = Color.Lerp(color, Color.white, 0.18f);
-            colors.pressedColor = Color.Lerp(color, Color.black, 0.18f);
-            button.colors = colors;
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
-
-            var text = CreateText(image.transform, "Label", label, 36, Color.white, TextAnchor.MiddleCenter);
-            Stretch(text.rectTransform);
-            return button;
-        }
-
-        public static Button CreateSpriteButton(
-            Transform parent,
-            string name,
-            string label,
-            Sprite normal,
-            Sprite pressed,
-            Vector2 size)
-        {
-            var image = CreatePanel(parent, name, Color.white);
-            image.raycastTarget = true;
-            if (normal != null)
-            {
-                image.sprite = normal;
-                image.type = Image.Type.Simple;
-                image.preserveAspect = false;
-            }
-
-            var rt = image.rectTransform;
-            rt.sizeDelta = size;
-
-            var button = image.gameObject.AddComponent<Button>();
-            StyleSpriteSwapButton(button, normal, pressed, false);
-
-            var text = CreateText(image.transform, "Label", label, 40, Color.white, TextAnchor.MiddleCenter);
-            AddOutline(text);
-            Stretch(text.rectTransform);
-            return button;
         }
 
         public static void StyleSpriteSwapButton(Button button, Sprite normal, Sprite pressed, bool sliced)
@@ -214,41 +167,6 @@ namespace IceFishing.View
                 sprites.disabledSprite = normal;
                 button.spriteState = sprites;
             }
-        }
-
-
-        static Font EditorSafeFont()
-        {
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        }
-
-        public static void SizeScreenRoot(RectTransform rt)
-        {
-            if (rt == null)
-            {
-                return;
-            }
-
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            rt.localScale = Vector3.one;
-        }
-
-        public static RectTransform CreateFixedLayout(Transform root, string name)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(root, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = new Vector2(HudReferenceWidth, HudReferenceHeight);
-            rt.localScale = Vector3.one;
-            return rt;
         }
 
         public static void FitFixedLayout(RectTransform root, ref RectTransform layout, string layoutName, ref bool fitting)
@@ -372,27 +290,6 @@ namespace IceFishing.View
             scaler.matchWidthOrHeight = HudScalerMatch;
         }
 
-        public static void StripExtraCanvas(GameObject root)
-        {
-            var raycaster = root.GetComponent<GraphicRaycaster>();
-            if (raycaster != null)
-            {
-                Object.DestroyImmediate(raycaster);
-            }
-
-            var scaler = root.GetComponent<CanvasScaler>();
-            if (scaler != null)
-            {
-                Object.DestroyImmediate(scaler);
-            }
-
-            var canvas = root.GetComponent<Canvas>();
-            if (canvas != null)
-            {
-                Object.DestroyImmediate(canvas);
-            }
-        }
-
         public static void Stretch(RectTransform rt)
         {
             rt.anchorMin = Vector2.zero;
@@ -400,88 +297,5 @@ namespace IceFishing.View
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
         }
-
-        public static void AnchorTop(RectTransform rt, Vector2 pivot, Vector2 pos, Vector2 size)
-        {
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
-            rt.pivot = pivot;
-            rt.anchoredPosition = pos;
-            rt.sizeDelta = size;
-        }
-
-        public static void AnchorBottom(RectTransform rt, Vector2 pivot, Vector2 pos, Vector2 size)
-        {
-            rt.anchorMin = new Vector2(0.5f, 0f);
-            rt.anchorMax = new Vector2(0.5f, 0f);
-            rt.pivot = pivot;
-            rt.anchoredPosition = pos;
-            rt.sizeDelta = size;
-        }
-
-        public static void AddOutline(Text text)
-        {
-            if (text == null || text.GetComponent<Outline>() != null)
-            {
-                return;
-            }
-
-            var outline = text.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.6f);
-            outline.effectDistance = new Vector2(1.5f, -1.5f);
-        }
-
-
-
-
-
-
-
-
-
-        public static Button CreateIconButton(Transform parent, string name, Sprite sprite, Vector2 size)
-        {
-            var image = CreatePanel(parent, name, sprite != null ? Color.white : UiTheme.PauseButton);
-            image.raycastTarget = true;
-            if (sprite != null)
-            {
-                image.sprite = sprite;
-                image.type = Image.Type.Simple;
-                image.preserveAspect = true;
-            }
-
-            var rt = image.rectTransform;
-            rt.sizeDelta = size;
-            var button = image.gameObject.AddComponent<Button>();
-            var colors = button.colors;
-            colors.highlightedColor = new Color(1f, 1f, 1f, 0.92f);
-            colors.pressedColor = new Color(0.82f, 0.82f, 0.82f, 1f);
-            button.colors = colors;
-            button.navigation = new Navigation { mode = Navigation.Mode.None };
-            return button;
-        }
-
-
-        public static void ClearChildren(Transform root)
-        {
-            if (root == null)
-            {
-                return;
-            }
-
-            for (var i = root.childCount - 1; i >= 0; i--)
-            {
-                var child = root.GetChild(i).gameObject;
-                if (Application.isPlaying)
-                {
-                    Object.Destroy(child);
-                }
-                else
-                {
-                    Object.DestroyImmediate(child);
-                }
-            }
-        }
-
     }
 }

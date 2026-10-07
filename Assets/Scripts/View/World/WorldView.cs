@@ -69,13 +69,12 @@ namespace IceFishing.View
         Color _hubSky = new Color(0.62f, 0.82f, 0.94f);
         Color _waterSky = new Color(0f, 0.455f, 0.757f);
 
-        Sprite _square;
-        Sprite _circle;
         Transform _hookShield;
         const float HookWorldHeight = 1f;
         const float HookWorldZ = -0.12f;
         const string HookSpritePath = "Assets/Art/Sprites/FishingAnchor.png";
         public const string DefaultHookPrefabPath = "Assets/Prefabs/World/FishingHook.prefab";
+        public const string HookPrefabResourcePath = "World/FishingHook";
         public const string DefaultWorldPrefabPath = "Assets/Prefabs/World/IceFishingWorld.prefab";
 
         public void AssignRuntimeCamera(Camera worldCamera)
@@ -107,9 +106,7 @@ namespace IceFishing.View
             EnsureHookReference();
             if (_hook == null)
             {
-                _hook = CreateSpriteObject("Hook", new Vector3(0f, 3.05f, -0.12f), Vector3.one, 20);
-                _line = _hook.gameObject.AddComponent<LineRenderer>();
-                SetupLine(_line);
+                Debug.LogError("FishingHook prefab missing. Expected " + DefaultHookPrefabPath);
             }
 
             _underwater = null;
@@ -193,11 +190,7 @@ namespace IceFishing.View
                 return;
             }
 
-            EnsureSprites();
-            var hookSprite = ResolveHookSprite();
-            Paint(_hook, hookSprite != null ? hookSprite : _square, hookSprite != null ? Color.white : UiTheme.Hook);
-            FitHookScale();
-            EnsureHookShield();
+            ApplyHookPrefabVisual();
             UpdateHookShieldSize();
         }
 
@@ -416,11 +409,7 @@ namespace IceFishing.View
 
             if (!_hookWarmed)
             {
-                EnsureSprites();
-                var hookSprite = ResolveHookSprite();
-                Paint(_hook, hookSprite != null ? hookSprite : _square, hookSprite != null ? Color.white : UiTheme.Hook);
-                FitHookScale();
-                EnsureHookShield();
+                ApplyHookPrefabVisual();
                 WarmLine();
                 _hookWarmed = true;
             }
@@ -1224,11 +1213,7 @@ namespace IceFishing.View
         void EnsureVisuals()
         {
             EnsureHookReference();
-            EnsureSprites();
-            var hookSprite = ResolveHookSprite();
-            Paint(_hook, hookSprite != null ? hookSprite : _square, hookSprite != null ? Color.white : UiTheme.Hook);
-            FitHookScale();
-            EnsureHookShield();
+            ApplyHookPrefabVisual();
             if (_line != null)
             {
                 var showLine = !_hideWorldLine
@@ -1309,19 +1294,22 @@ namespace IceFishing.View
 
         Transform FindHookTransform()
         {
-            var direct = transform.Find("Hook");
-            if (direct != null)
+            var named = transform.Find("Hook");
+            if (named != null)
             {
-                return direct;
+                return named;
             }
 
-            var hooks = transform.GetComponentsInChildren<Transform>(true);
-            for (var i = 0; i < hooks.Length; i++)
+            named = transform.Find("FishingHook");
+            if (named != null)
             {
-                if (hooks[i] != null && hooks[i].name == "Hook")
-                {
-                    return hooks[i];
-                }
+                return named;
+            }
+
+            var visual = GetComponentInChildren<FishingHookVisual>(true);
+            if (visual != null)
+            {
+                return visual.transform;
             }
 
             return null;
@@ -1336,10 +1324,12 @@ namespace IceFishing.View
 
 #if UNITY_EDITOR
             _hookPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(DefaultHookPrefabPath);
-            return _hookPrefab;
-#else
-            return null;
+            if (_hookPrefab != null)
+            {
+                return _hookPrefab;
+            }
 #endif
+            return Resources.Load<GameObject>(HookPrefabResourcePath);
         }
 
         void CaptureDropFromHook()
@@ -1513,20 +1503,30 @@ namespace IceFishing.View
             return _hookSprite;
         }
 
-        void EnsureSprites()
+        void ApplyHookPrefabVisual()
         {
-            if (_square == null)
+            if (_hook == null)
             {
-                _square = MakeSprite(false);
+                return;
             }
 
-            if (_circle == null)
+            var renderer = _hook.GetComponent<SpriteRenderer>();
+            var sprite = renderer != null ? renderer.sprite : null;
+            if (sprite == null)
             {
-                _circle = HookPrototypeSprites.Circle;
+                sprite = ResolveHookSprite();
+                if (renderer != null && sprite != null)
+                {
+                    renderer.sprite = sprite;
+                    renderer.color = Color.white;
+                }
             }
+
+            FitHookScale();
+            BindHookShield();
         }
 
-        void EnsureHookShield()
+        void BindHookShield()
         {
             if (_hook == null)
             {
@@ -1538,11 +1538,7 @@ namespace IceFishing.View
                 _hookShield = _hook.Find("HookShield");
             }
 
-            if (_hookShield == null)
-            {
-                _hookShield = HookShieldSetup.EnsureChild(_hook);
-            }
-            else
+            if (_hookShield != null)
             {
                 HookShieldSetup.ApplyLayout(_hook, _hookShield);
             }
@@ -1550,7 +1546,7 @@ namespace IceFishing.View
 
         void UpdateHookShield(CastSession session)
         {
-            EnsureHookShield();
+            BindHookShield();
             if (_hookShield == null)
             {
                 return;
@@ -1576,34 +1572,6 @@ namespace IceFishing.View
             }
 
             HookShieldSetup.ApplyLayout(_hook, _hookShield);
-        }
-
-        Transform CreateSpriteObject(string objectName, Vector3 position, Vector3 scale, int order)
-        {
-            var go = new GameObject(objectName);
-            go.transform.SetParent(transform, false);
-            go.transform.position = position;
-            go.transform.localScale = scale;
-            var spriteRenderer = go.AddComponent<SpriteRenderer>();
-            spriteRenderer.sortingOrder = order;
-            return go.transform;
-        }
-
-        void Paint(Transform target, Sprite sprite, Color color)
-        {
-            if (target == null)
-            {
-                return;
-            }
-
-            var spriteRenderer = target.GetComponent<SpriteRenderer>();
-            if (spriteRenderer == null)
-            {
-                return;
-            }
-
-            spriteRenderer.sprite = sprite;
-            spriteRenderer.color = color;
         }
 
         static void SetupLine(LineRenderer line)
@@ -1640,26 +1608,5 @@ namespace IceFishing.View
             }
         }
 
-        static Sprite MakeSprite(bool circle)
-        {
-            return circle ? HookPrototypeSprites.Circle : MakeSquareSprite();
-        }
-
-        static Sprite MakeSquareSprite()
-        {
-            const int size = 64;
-            var texture = new Texture2D(size, size, TextureFormat.ARGB32, false);
-            texture.filterMode = FilterMode.Bilinear;
-            for (var y = 0; y < size; y++)
-            {
-                for (var x = 0; x < size; x++)
-                {
-                    texture.SetPixel(x, y, Color.white);
-                }
-            }
-
-            texture.Apply();
-            return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
-        }
     }
 }

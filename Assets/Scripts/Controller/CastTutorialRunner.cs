@@ -12,7 +12,7 @@ namespace IceFishing.Controller
     /// </summary>
     public static class CastTutorialRunner
     {
-        const float AutoReturnSeconds = 3f;
+        const float AutoReturnSeconds = 2f;
 
         public static IEnumerator Run(
             CastSession session,

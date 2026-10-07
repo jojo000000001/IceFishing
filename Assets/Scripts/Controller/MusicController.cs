@@ -12,6 +12,10 @@ namespace IceFishing.Controller
         public const string CampBgmPath = "Assets/Music/bgm/Ice Cave.mp3";
         public const string UnderwaterBgmPath = "Assets/Music/bgm/Kim Lightyear - Under The Sea.mp3";
         public const string ProtectionHitSfxPath = "Assets/Music/sounds/knifesharpener2.flac";
+        public const string CatchSfxPath = "Assets/Music/sounds/Plop.ogg";
+        public const string CoinSfxPath = "Assets/Music/sounds/hjm-coindrop_v1.wav";
+        public const string SurfaceSfxPath = "Assets/Music/sounds/splash1.wav";
+        public const string SettleSfxPath = "Assets/Music/sounds/splash2.wav";
 
         const float DefaultBgmVolume = 0.42f;
         const float DefaultSfxVolume = 0.8f;
@@ -20,6 +24,10 @@ namespace IceFishing.Controller
         [SerializeField] AudioClip _campBgm;
         [SerializeField] AudioClip _underwaterBgm;
         [SerializeField] AudioClip _protectionHitSfx;
+        [SerializeField] AudioClip _catchSfx;
+        [SerializeField] AudioClip _coinSfx;
+        [SerializeField] AudioClip _surfaceSfx;
+        [SerializeField] AudioClip _settleSfx;
         [SerializeField] AudioSource _bgmA;
         [SerializeField] AudioSource _bgmB;
         [SerializeField] AudioSource _sfxSource;
@@ -55,11 +63,22 @@ namespace IceFishing.Controller
             return created;
         }
 
-        public void EditorAssign(AudioClip campBgm, AudioClip underwaterBgm, AudioClip protectionHitSfx)
+        public void EditorAssign(
+            AudioClip campBgm,
+            AudioClip underwaterBgm,
+            AudioClip protectionHitSfx,
+            AudioClip catchSfx = null,
+            AudioClip coinSfx = null,
+            AudioClip surfaceSfx = null,
+            AudioClip settleSfx = null)
         {
             _campBgm = campBgm;
             _underwaterBgm = underwaterBgm;
             _protectionHitSfx = protectionHitSfx;
+            _catchSfx = catchSfx;
+            _coinSfx = coinSfx;
+            _surfaceSfx = surfaceSfx;
+            _settleSfx = settleSfx;
             EnsureSources();
         }
 
@@ -97,6 +116,26 @@ namespace IceFishing.Controller
         public void PlayProtectionHit()
         {
             PlaySfx(ResolveProtectionHitClip());
+        }
+
+        public void PlayCatch()
+        {
+            PlaySfx(ResolveCatchClip());
+        }
+
+        public void PlayCoin()
+        {
+            PlaySfx(ResolveCoinClip());
+        }
+
+        public void PlaySurface()
+        {
+            PlaySfx(ResolveSurfaceClip());
+        }
+
+        public void PlaySettle()
+        {
+            PlaySfx(ResolveSettleClip());
         }
 
         public void PlaySfx(AudioClip clip)
@@ -240,6 +279,26 @@ namespace IceFishing.Controller
             {
                 _protectionHitSfx = LoadClip(ProtectionHitSfxPath);
             }
+
+            if (_catchSfx == null)
+            {
+                _catchSfx = LoadClip(CatchSfxPath);
+            }
+
+            if (_coinSfx == null)
+            {
+                _coinSfx = LoadClip(CoinSfxPath);
+            }
+
+            if (_surfaceSfx == null)
+            {
+                _surfaceSfx = LoadClip(SurfaceSfxPath);
+            }
+
+            if (_settleSfx == null)
+            {
+                _settleSfx = LoadClip(SettleSfxPath);
+            }
         }
 
         AudioClip ResolveCampClip()
@@ -270,6 +329,46 @@ namespace IceFishing.Controller
             }
 
             return _protectionHitSfx;
+        }
+
+        AudioClip ResolveCatchClip()
+        {
+            if (_catchSfx == null)
+            {
+                _catchSfx = LoadClip(CatchSfxPath);
+            }
+
+            return _catchSfx;
+        }
+
+        AudioClip ResolveCoinClip()
+        {
+            if (_coinSfx == null)
+            {
+                _coinSfx = LoadClip(CoinSfxPath);
+            }
+
+            return _coinSfx;
+        }
+
+        AudioClip ResolveSurfaceClip()
+        {
+            if (_surfaceSfx == null)
+            {
+                _surfaceSfx = LoadClip(SurfaceSfxPath);
+            }
+
+            return _surfaceSfx;
+        }
+
+        AudioClip ResolveSettleClip()
+        {
+            if (_settleSfx == null)
+            {
+                _settleSfx = LoadClip(SettleSfxPath);
+            }
+
+            return _settleSfx;
         }
 
         static AudioClip LoadClip(string assetPath)

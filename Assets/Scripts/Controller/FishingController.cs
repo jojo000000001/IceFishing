@@ -104,6 +104,7 @@ namespace IceFishing.Controller
             if (_session.CaughtCount > countBefore)
             {
                 catchSlot = countBefore;
+                MusicController.Ensure().PlayCatch();
                 return true;
             }
 

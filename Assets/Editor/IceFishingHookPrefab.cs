@@ -33,14 +33,9 @@ namespace IceFishing.EditorTools
                 return;
             }
 
-            var temp = CreateTemplateHook();
-            try
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) == null)
             {
-                SaveHookAsPrefab(temp);
-            }
-            finally
-            {
-                Object.DestroyImmediate(temp);
+                Debug.LogError("FishingHook prefab missing at " + PrefabPath + " and no scene Hook to bake.");
             }
         }
 
@@ -75,6 +70,11 @@ namespace IceFishing.EditorTools
 
             var worldTransform = world.transform;
             var existing = worldTransform.Find("Hook");
+            if (existing == null)
+            {
+                existing = worldTransform.Find("FishingHook");
+            }
+
             Vector3 localPos = new Vector3(0.08f, 6.5f, -0.12f);
             Quaternion localRot = Quaternion.identity;
             if (existing != null)
@@ -124,6 +124,11 @@ namespace IceFishing.EditorTools
             }
 
             var existing = world.Find("Hook");
+            if (existing == null)
+            {
+                existing = world.Find("FishingHook");
+            }
+
             if (existing != null)
             {
                 Object.DestroyImmediate(existing.gameObject);
@@ -172,20 +177,6 @@ namespace IceFishing.EditorTools
             Debug.Log("Saved " + PrefabPath);
         }
 
-        static GameObject CreateTemplateHook()
-        {
-            var hookSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Sprites/FishingAnchor.png");
-            var go = new GameObject("Hook");
-            var renderer = go.AddComponent<SpriteRenderer>();
-            renderer.sprite = hookSprite;
-            renderer.sortingOrder = 20;
-            var line = go.AddComponent<LineRenderer>();
-            WorldView.SetupLineForEditor(line);
-            go.transform.localPosition = new Vector3(0.08f, 6.5f, -0.12f);
-            NormalizeHookRoot(go);
-            return go;
-        }
-
         static void NormalizeHookRoot(GameObject hookRoot)
         {
             if (hookRoot == null)
@@ -200,16 +191,6 @@ namespace IceFishing.EditorTools
             }
 
             visual.Apply();
-            HookShieldSpriteAsset.RebuildAll(false);
-            var shield = HookShieldSetup.EnsureChild(hookRoot.transform);
-            if (shield != null)
-            {
-                var shieldVisual = shield.GetComponent<HookShieldVisual>();
-                if (shieldVisual != null)
-                {
-                    shieldVisual.ApplyFull();
-                }
-            }
         }
 
         static void EnsureFolder()
