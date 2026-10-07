@@ -218,7 +218,18 @@ namespace IceFishing.View
                 _campBackdrop.enabled = !show;
             }
 
-            var line = transform.Find("FisherRig/GripBone/Grip/FisherLine");
+            var letterbox = transform.Find(UiFactory.CampLetterboxName);
+            if (letterbox != null)
+            {
+                var letterboxImage = letterbox.GetComponent<Image>();
+                if (letterboxImage != null)
+                {
+                    letterboxImage.enabled = !show;
+                }
+            }
+
+            var rig = FindFisherRig();
+            var line = rig != null ? rig.Find("GripBone/Grip/FisherLine") : null;
             if (line != null)
             {
                 line.gameObject.SetActive(!show);
@@ -361,7 +372,7 @@ namespace IceFishing.View
                 layoutGroup.blocksRaycasts = !active;
             }
 
-            var rig = transform.Find("FisherRig");
+            var rig = FindFisherRig();
             if (rig != null)
             {
                 rig.gameObject.SetActive(!active);
@@ -402,9 +413,12 @@ namespace IceFishing.View
                 return;
             }
             EnsureCampBackdrop();
+            UiFactory.EnsureCampLetterboxFill(transform as RectTransform);
             UiFactory.FitFixedLayout(transform as RectTransform, ref _layout, "HubLayout", ref _fitting);
             EnsureCurrencyBar();
             UiFactory.FitCampBackdrop(_campBackdrop, transform as RectTransform);
+            OrderHubStage();
+            FitFisherToStage(FindFisherRig());
             if (!_casting)
             {
                 ShowGrip(0f);
@@ -611,9 +625,34 @@ namespace IceFishing.View
             ShowGrip(to);
         }
 
+        RectTransform FindFisherRig()
+        {
+            var found = transform.Find("FisherRig") as RectTransform;
+            if (found == null && _layout != null)
+            {
+                found = _layout.Find("FisherRig") as RectTransform;
+            }
+
+            return found;
+        }
+
+        void OrderHubStage()
+        {
+            var letterbox = transform.Find(UiFactory.CampLetterboxName);
+            if (letterbox != null)
+            {
+                letterbox.SetAsFirstSibling();
+            }
+
+            if (_campBackdrop != null)
+            {
+                _campBackdrop.transform.SetSiblingIndex(letterbox != null ? 1 : 0);
+            }
+        }
+
         RectTransform EnsureRig()
         {
-            var found = transform.Find("FisherRig");
+            var found = FindFisherRig();
             RectTransform rig;
             if (found == null)
             {
@@ -628,7 +667,11 @@ namespace IceFishing.View
             }
             else
             {
-                rig = found as RectTransform;
+                rig = found;
+                if (rig.parent != transform)
+                {
+                    rig.SetParent(transform, false);
+                }
             }
 
             for (var i = transform.childCount - 1; i >= 0; i--)
@@ -654,15 +697,50 @@ namespace IceFishing.View
                 }
             }
 
-            rig.anchorMin = _fisherFoot;
-            rig.anchorMax = _fisherFoot;
-            rig.pivot = new Vector2(0.5f, 0.02f);
-            rig.anchoredPosition = Vector2.zero;
-            var parent = transform as RectTransform;
-            var height = parent != null && parent.rect.height > 1f ? parent.rect.height * _fisherHeight : 2160f * _fisherHeight;
-            var aspect = _fisherBody.rect.width / Mathf.Max(1f, _fisherBody.rect.height);
-            rig.sizeDelta = new Vector2(height * aspect, height);
+            FitFisherToStage(rig);
             return rig;
+        }
+
+        void FitFisherToStage(RectTransform rig)
+        {
+            if (rig == null)
+            {
+                return;
+            }
+
+            var center = new Vector2(0.5f, 0.5f);
+            rig.anchorMin = center;
+            rig.anchorMax = center;
+            rig.pivot = new Vector2(0.5f, 0.02f);
+            var scale = 1f;
+            if (_layout != null)
+            {
+                scale = _layout.localScale.x;
+            }
+            else
+            {
+                var parent = transform as RectTransform;
+                if (parent != null && parent.rect.width > 1f && parent.rect.height > 1f)
+                {
+                    scale = Mathf.Min(
+                        parent.rect.width / UiFactory.HudReferenceWidth,
+                        parent.rect.height / UiFactory.HudReferenceHeight);
+                    if (scale < 0.1f)
+                    {
+                        scale = 1f;
+                    }
+                }
+            }
+
+            rig.localScale = new Vector3(scale, scale, 1f);
+            rig.anchoredPosition = new Vector2(
+                (_fisherFoot.x - 0.5f) * UiFactory.HudReferenceWidth,
+                (_fisherFoot.y - 0.5f) * UiFactory.HudReferenceHeight);
+            var height = UiFactory.HudReferenceHeight * _fisherHeight;
+            var aspect = _fisherBody != null && _fisherBody.rect.height > 1f
+                ? _fisherBody.rect.width / _fisherBody.rect.height
+                : 0.7f;
+            rig.sizeDelta = new Vector2(height * aspect, height);
         }
 
         RectTransform EnsureGripBone(RectTransform rig)
@@ -1061,9 +1139,21 @@ namespace IceFishing.View
             }
 
             _startButton.onClick.AddListener(() => StartClicked?.Invoke());
-            _gearButton.onClick.AddListener(() => GearClicked?.Invoke());
-            _collectionButton.onClick.AddListener(() => CollectionClicked?.Invoke());
-            _settingsButton.onClick.AddListener(() => SettingsClicked?.Invoke());
+            if (_gearButton != null)
+            {
+                _gearButton.onClick.AddListener(() => GearClicked?.Invoke());
+            }
+
+            if (_collectionButton != null)
+            {
+                _collectionButton.onClick.AddListener(() => CollectionClicked?.Invoke());
+            }
+
+            if (_settingsButton != null)
+            {
+                _settingsButton.onClick.AddListener(() => SettingsClicked?.Invoke());
+            }
+
             _wired = true;
         }
 

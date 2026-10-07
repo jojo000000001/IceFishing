@@ -95,7 +95,7 @@ namespace IceFishing.EditorTools
             {
                 var worldObject = new GameObject("World");
                 world = worldObject.AddComponent<WorldView>();
-                var hubBackground = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Backgrounds/HubBackground.png");
+                var hubBackground = AssetDatabase.LoadAssetAtPath<Sprite>(UiFactory.HubCampMapPath);
                 var hookSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Sprites/FishingAnchor.png");
                 world.Build(camera, hubBackground, hookSprite);
                 var camp = PlaceCampPrefab(world.transform, hubBackground);
@@ -143,6 +143,11 @@ namespace IceFishing.EditorTools
             var tutorial = PlaceCastTutorialPrefab(canvasObject.transform);
 
             var bootstrap = new GameObject("Bootstrap");
+            var music = new GameObject(MusicController.NodeName).AddComponent<MusicController>();
+            music.EditorAssign(
+                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.CampBgmPath),
+                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.UnderwaterBgmPath),
+                AssetDatabase.LoadAssetAtPath<AudioClip>(MusicController.ProtectionHitSfxPath));
             var app = bootstrap.AddComponent<AppController>();
             app.EditorAssign(ui.Hub, ui.Hud, ui.Pause, ui.Overlay, ui.Settle, world, worldPrefab, tutorial);
 
@@ -501,7 +506,7 @@ namespace IceFishing.EditorTools
         {
             EnsureFolder("Assets/Prefabs");
             EnsureFolder("Assets/Prefabs/World");
-            var art = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Backgrounds/HubBackground.png");
+            var art = AssetDatabase.LoadAssetAtPath<Sprite>(UiFactory.HubCampMapPath);
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(CampPrefabPath);
             if (existing != null)
             {
@@ -567,7 +572,7 @@ namespace IceFishing.EditorTools
                 return;
             }
 
-            var art = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Backgrounds/HubBackground.png");
+            var art = AssetDatabase.LoadAssetAtPath<Sprite>(UiFactory.HubCampMapPath);
             var oldCamps = world.GetComponentsInChildren<CampField>(true);
             for (var i = 0; i < oldCamps.Length; i++)
             {

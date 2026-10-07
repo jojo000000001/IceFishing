@@ -74,6 +74,52 @@ namespace IceFishing.View
             FitLayout();
         }
 
+        public void ShowFishingMode()
+        {
+            Show();
+            SetPauseVisible(true);
+            SetPhaseVisible(true);
+        }
+
+        /// <summary>
+        /// 营地/回营：仅左上角三条统计，数值与下一局开局一致，无暂停与阶段文案。
+        /// </summary>
+        public void ShowCampStats(PlayerProfile profile, int protectionHits, float lineLengthMeters)
+        {
+            Show();
+            SetPauseVisible(false);
+            SetPhaseVisible(false);
+            SetFade(1f);
+
+            var group = GetComponent<CanvasGroup>();
+            if (group == null)
+            {
+                group = gameObject.AddComponent<CanvasGroup>();
+            }
+
+            group.blocksRaycasts = false;
+
+            var session = CastSession.CreateCampDisplay(profile, protectionHits, lineLengthMeters);
+            _statsProfile?.ApplyToSession(session);
+            Bind(session);
+        }
+
+        public void SetPauseVisible(bool visible)
+        {
+            if (_pauseButton != null)
+            {
+                _pauseButton.gameObject.SetActive(visible);
+            }
+        }
+
+        public void SetPhaseVisible(bool visible)
+        {
+            if (_phaseText != null)
+            {
+                _phaseText.gameObject.SetActive(visible);
+            }
+        }
+
         public void SetFade(float alpha)
         {
             var group = GetComponent<CanvasGroup>();

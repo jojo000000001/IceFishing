@@ -76,6 +76,7 @@ namespace IceFishing.Controller
             ServiceLocator.Register(_profile);
 
             ApplyFonts();
+            MusicController.Ensure();
             EnsureScreenFlash();
             EnsureSettleView();
             EnsureCastTutorialView();
@@ -177,6 +178,7 @@ namespace IceFishing.Controller
                     if (protectionBefore > session.ProtectionLeft)
                     {
                         PlayProtectionScreenFlash();
+                        MusicController.Ensure().PlayProtectionHit();
                     }
                 }
 
@@ -328,6 +330,7 @@ namespace IceFishing.Controller
             _worldView.ApplyScreen(AppScreen.Fishing);
             _worldView.ApplyCast(_fishingController.Session);
             _worldView.BeginFish();
+            MusicController.Ensure().PlayUnderwaterBgm();
             _bus.RaiseScreenChanged(_screen);
         }
 
@@ -506,6 +509,11 @@ namespace IceFishing.Controller
 
         void TickFishingUiFade()
         {
+            if (_screen != AppScreen.Fishing)
+            {
+                return;
+            }
+
             var session = _fishingController.Session;
             if (session == null)
             {
@@ -542,7 +550,6 @@ namespace IceFishing.Controller
             _fishingController.Exit();
             _introT = 1f;
             _worldView.ClearFish();
-            _hudView.Hide();
             _pauseView.Hide();
             _overlayView.Hide();
             if (_settleView != null)
@@ -557,7 +564,9 @@ namespace IceFishing.Controller
             _hubView.Show();
             _hubView.SetInteractable(false);
             _screen = AppScreen.Hub;
+            MusicController.Ensure().PlayCampBgm();
             RefreshHub();
+            ShowCampHudStats();
 
             EnsureCampReward();
             if (_campReward == null)
@@ -609,7 +618,7 @@ namespace IceFishing.Controller
 
         void ShowHub()
         {
-            _hudView.Hide();
+            ShowCampHudStats();
             _pauseView.Hide();
             _overlayView.Hide();
             if (_settleView != null)
@@ -633,6 +642,7 @@ namespace IceFishing.Controller
             _hubView.Show();
             _worldView.SetHookRevealed(false);
             _screen = AppScreen.Hub;
+            MusicController.Ensure().PlayCampBgm();
             RefreshHub();
             _bus.RaiseScreenChanged(_screen);
         }
@@ -640,7 +650,24 @@ namespace IceFishing.Controller
         void RefreshHub()
         {
             _hubView.Refresh(_profile, _regen.SecondsUntilNext);
+            if (_screen == AppScreen.Hub)
+            {
+                ShowCampHudStats();
+            }
+
             _bus.RaiseProfileChanged(_profile);
+        }
+
+        void ShowCampHudStats()
+        {
+            if (_hudView == null)
+            {
+                return;
+            }
+
+            var protection = _worldView != null ? _worldView.hookProtectionHits : 2;
+            var lineMeters = _worldView != null ? _worldView.lineLengthMeters : 180f;
+            _hudView.ShowCampStats(_profile, protection, lineMeters);
         }
 
         void ApplyFonts()

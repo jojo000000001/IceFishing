@@ -95,6 +95,27 @@ namespace IceFishing.Model
             };
         }
 
+        /// <summary>
+        /// 营地左上角三颗胶囊用的展示状态（与开局 Session 上限一致，深度在冰面为 0）。
+        /// </summary>
+        public static CastSession CreateCampDisplay(
+            PlayerProfile profile,
+            int protectionHits,
+            float lineLengthMeters)
+        {
+            var session = CreatePlaceholder(
+                profile,
+                protectionHits,
+                lineLengthMeters,
+                FishingRules.DescentMetersPerSecond,
+                FishingRules.AscentMetersPerSecond,
+                FishingRules.AscentMetersPerSecond);
+            session.Depth = 0f;
+            session.PeakDepth = 0f;
+            session.Phase = CastPhase.Ready;
+            return session;
+        }
+
         public void Steer(float dt, float targetX, float minX, float maxX)
         {
             HookX = Mathf.MoveTowards(HookX, Mathf.Clamp(targetX, minX, maxX), FishingRules.HookWorldSpeed * dt);

@@ -55,7 +55,7 @@ namespace IceFishing.Controller
             _hud.StatsProfile?.ApplyToSession(_session);
             _paused = false;
             _pause.Hide();
-            _hud.Show();
+            _hud.ShowFishingMode();
             _hud.Bind(_session);
         }
 
